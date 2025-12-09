@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Team 7712 ACCN-Umoja Scouting</title>
+        <link rel="manifest" href="/manifest.json">
+        <meta name="theme-color" content="#1a472a">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="icon" href="./team7712_logo.svg">
+        <link rel="icon" type="image/png" sizes="32x32" href="./team7712_logo_reefscape.png">
+        <link rel="icon" type="image/png" sizes="192x192" href="./team7712_logo_reefscape.png">
+        <link rel="apple-touch-icon" sizes="180x180" href="./team7712_logo_reefscape.png">
+        <link rel="apple-touch-icon" sizes="152x152" href="./team7712_logo_reefscape.png">
+        <link rel="stylesheet" href="/styles.css">
+        <script src="/vendor/jsqr.js"></script>
+        <script src="/vendor/qrcode.min.js"></script>
+        <script>
+            // prevent flash of wrong page on initial load
+            document.addEventListener('DOMContentLoaded', () => document.body.classList.add('home-active'));
+        </script>
+        </head>
+<body class="home-active">
+    <div class="container">
+        <div class="header">
+            <img id="teamLogo" src="./team7712_logo_reefscape.png?v=20251205" alt="Team 7712 Logo" class="logo">
+            <h1>Team 7712 ACCN-Umoja</h1>
+            <div class="subtitle">FRC 2025 Scouting - REEFSCAPE</div>
+        </div>
+
+        <!-- Home Page -->
+        <div id="homePage" class="page active">
+            <div class="menu-container">
+                <div class="menu-grid">
+                    <button class="menu-btn" onclick="navigateToPage('scoutPage')"><div class="menu-btn-text">Scout Match</div></button>
+                    <button class="menu-btn" onclick="navigateToPage('dataPage')"><div class="menu-btn-text">View Data</div></button>
+                    <button class="menu-btn" onclick="openExportModal()"><div class="menu-btn-text">Export Data</div></button>
+                    <button class="menu-btn" onclick="openShareModal()"><div class="menu-btn-text">Share Data</div></button>
+                    <button class="menu-btn" onclick="navigateToPage('collectorPage')"><div class="menu-btn-text">Collect (QR)</div></button>
+                </div>
+                <button class="menu-btn full-width" onclick="showInstall()"><div class="menu-btn-text">Install App</div></button>
+            </div>
+        </div>
+
+        <!-- Scout Page -->
+        <div id="scoutPage" class="page">
+            <button class="back-btn" onclick="navigateBack()">Back</button>
+            <h2>Scout Match</h2>
+            <form id="matchForm" onsubmit="submitMatch(event)">
+                <div class="form-group">
+                    <label for="eventLevel">Competition Level</label>
+                    <select id="eventLevel" name="eventLevel">
+                        <option value="district">District</option>
+                        <option value="provincial">Provincial</option>
+                        <option value="championship">Championship</option>
+                        <option value="practice">Practice/Scrimmage</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="location">Location</label>
+                    <input type="text" id="location" name="location" placeholder="Event venue or city">
+                </div>
+                <div class="form-group">
+                    <label for="matchNumber">Match Number</label>
+                    <input type="number" id="matchNumber" name="matchNumber" required min="1">
+                </div>
+                <div class="form-group">
+                    <label for="teamNumber">Team Number</label>
+                    <input type="number" id="teamNumber" name="teamNumber" required min="1">
+                </div>
+                <div class="form-group">
+                    <label for="alliance">Alliance</label>
+                    <select id="alliance" name="alliance" required>
+                        <option value="red">Red</option>
+                        <option value="blue">Blue</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="scoutName">Scout Name</label>
+                    <input type="text" id="scoutName" name="scoutName" required>
+                </div>
+
+                <h3>Autonomous</h3>
+                <div class="form-group">
+                    <label for="mobility">Mobility</label>
+                    <select id="mobility" name="mobility">
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Coral Scored (Auto)</label>
+                    <div class="counter-row">
+                        <div class="counter" data-name="autoCoralL1"><span class="counter-label">L1</span><button type="button" class="btn mini" onclick="decCounter('autoCoralL1')">-</button><span id="autoCoralL1Value">0</span><button type="button" class="btn mini" onclick="incCounter('autoCoralL1')">+</button><input type="hidden" name="autoCoralL1" id="autoCoralL1" value="0"></div>
+                        <div class="counter" data-name="autoCoralL2"><span class="counter-label">L2</span><button type="button" class="btn mini" onclick="decCounter('autoCoralL2')">-</button><span id="autoCoralL2Value">0</span><button type="button" class="btn mini" onclick="incCounter('autoCoralL2')">+</button><input type="hidden" name="autoCoralL2" id="autoCoralL2" value="0"></div>
+                        <div class="counter" data-name="autoCoralL3"><span class="counter-label">L3</span><button type="button" class="btn mini" onclick="decCounter('autoCoralL3')">-</button><span id="autoCoralL3Value">0</span><button type="button" class="btn mini" onclick="incCounter('autoCoralL3')">+</button><input type="hidden" name="autoCoralL3" id="autoCoralL3" value="0"></div>
+                        <div class="counter" data-name="autoCoralL4"><span class="counter-label">L4</span><button type="button" class="btn mini" onclick="decCounter('autoCoralL4')">-</button><span id="autoCoralL4Value">0</span><button type="button" class="btn mini" onclick="incCounter('autoCoralL4')">+</button><input type="hidden" name="autoCoralL4" id="autoCoralL4" value="0"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Algae (Auto)</label>
+                    <div class="counter-row">
+                        <div class="counter" data-name="autoAlgaeNetted"><span class="counter-label">Netted</span><button type="button" class="btn mini" onclick="decCounter('autoAlgaeNetted')">-</button><span id="autoAlgaeNettedValue">0</span><button type="button" class="btn mini" onclick="incCounter('autoAlgaeNetted')">+</button><input type="hidden" name="autoAlgaeNetted" id="autoAlgaeNetted" value="0"></div>
+                        <div class="counter" data-name="autoAlgaeProcessor"><span class="counter-label">Processor</span><button type="button" class="btn mini" onclick="decCounter('autoAlgaeProcessor')">-</button><span id="autoAlgaeProcessorValue">0</span><button type="button" class="btn mini" onclick="incCounter('autoAlgaeProcessor')">+</button><input type="hidden" name="autoAlgaeProcessor" id="autoAlgaeProcessor" value="0"></div>
+                    </div>
+                </div>
+
+                <h3>Teleop</h3>
+                <div class="form-group">
+                    <label>Coral Scored (Teleop)</label>
+                    <div class="counter-row">
+                        <div class="counter" data-name="teleopCoralL1"><span class="counter-label">L1</span><button type="button" class="btn mini" onclick="decCounter('teleopCoralL1')">-</button><span id="teleopCoralL1Value">0</span><button type="button" class="btn mini" onclick="incCounter('teleopCoralL1')">+</button><input type="hidden" name="teleopCoralL1" id="teleopCoralL1" value="0"></div>
+                        <div class="counter" data-name="teleopCoralL2"><span class="counter-label">L2</span><button type="button" class="btn mini" onclick="decCounter('teleopCoralL2')">-</button><span id="teleopCoralL2Value">0</span><button type="button" class="btn mini" onclick="incCounter('teleopCoralL2')">+</button><input type="hidden" name="teleopCoralL2" id="teleopCoralL2" value="0"></div>
+                        <div class="counter" data-name="teleopCoralL3"><span class="counter-label">L3</span><button type="button" class="btn mini" onclick="decCounter('teleopCoralL3')">-</button><span id="teleopCoralL3Value">0</span><button type="button" class="btn mini" onclick="incCounter('teleopCoralL3')">+</button><input type="hidden" name="teleopCoralL3" id="teleopCoralL3" value="0"></div>
+                        <div class="counter" data-name="teleopCoralL4"><span class="counter-label">L4</span><button type="button" class="btn mini" onclick="decCounter('teleopCoralL4')">-</button><span id="teleopCoralL4Value">0</span><button type="button" class="btn mini" onclick="incCounter('teleopCoralL4')">+</button><input type="hidden" name="teleopCoralL4" id="teleopCoralL4" value="0"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Algae (Teleop)</label>
+                    <div class="counter-row">
+                        <div class="counter" data-name="teleopAlgaeNetted"><span class="counter-label">Netted</span><button type="button" class="btn mini" onclick="decCounter('teleopAlgaeNetted')">-</button><span id="teleopAlgaeNettedValue">0</span><button type="button" class="btn mini" onclick="incCounter('teleopAlgaeNetted')">+</button><input type="hidden" name="teleopAlgaeNetted" id="teleopAlgaeNetted" value="0"></div>
+                        <div class="counter" data-name="teleopAlgaeProcessor"><span class="counter-label">Processor</span><button type="button" class="btn mini" onclick="decCounter('teleopAlgaeProcessor')">-</button><span id="teleopAlgaeProcessorValue">0</span><button type="button" class="btn mini" onclick="incCounter('teleopAlgaeProcessor')">+</button><input type="hidden" name="teleopAlgaeProcessor" id="teleopAlgaeProcessor" value="0"></div>
+                    </div>
+                </div>
+
+                <h3>Endgame</h3>
+                <div class="form-group">
+                    <label for="park">Park</label>
+                    <select id="park" name="park">
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="climb">Climb</label>
+                    <select id="climb" name="climb">
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="shallow">Shallow</label>
+                    <select id="shallow" name="shallow">
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="deep">Deep</label>
+                    <select id="deep" name="deep">
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" name="notes" rows="4" placeholder="Observations, issues, strengths..."></textarea>
+                </div>
+                <button type="submit" class="btn success">Save Match</button>
+            </form>
+        </div>
+
+        <!-- Data Page -->
+        <div id="dataPage" class="page">
+            <button class="back-btn" onclick="navigateBack()">Back</button>
+            <h2>Scouting Data</h2>
+            <div id="dataDisplay"></div>
+            <div style="margin-top: 20px;">
+                <button class="btn" onclick="openExportModal()">Export</button>
+                <button class="btn" onclick="openShareModal()">Share</button>
+                <button class="btn danger" onclick="openClearDataModal()">Clear</button>
+            </div>
+        </div>
+
+        <!-- Collector Page -->
+        <div id="collectorPage" class="page">
+            <button class="back-btn" onclick="navigateBack()">Back</button>
+            <h2>Collect Data (QR)</h2>
+            <p id="collectorNotice"></p>
+            <div style="margin: 10px 0;">
+                <button class="btn" onclick="startQRScan()">Start Camera Scan</button>
+                <button class="btn" onclick="stopQRScan()">Stop Camera</button>
+                <button class="btn" onclick="openImageQR()">Scan From Image</button>
+            </div>
+            <div id="qrScanner" style="display:none; margin: 15px 0;">
+                <video id="qrVideo" playsinline style="width:100%; max-width:600px; border-radius: 15px;"></video>
+                <canvas id="qrCanvas" style="display:none"></canvas>
+            </div>
+            <h3>Paste Import Link</h3>
+            <div class="form-group">
+                <input type="text" id="importLinkInput" placeholder="Paste import link (/#import?csv=...) here">
+                <button class="btn" onclick="processImportLink()">Import From Link</button>
+            </div>
+            <h3>Or Paste CSV Text</h3>
+            <div class="form-group">
+                <textarea id="rawCSVInput" rows="5" placeholder="Paste CSV rows here..."></textarea>
+                <button class="btn" onclick="processCSVText()">Import From CSV</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>
+
+
+

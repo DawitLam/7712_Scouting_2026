@@ -1,0 +1,43 @@
+{
+  "name": "Team 7712 ACCN-Umoja Scouting",
+  "short_name": "Team 7712 Scout",
+  "description": "FRC Team 7712 ACCN-Umoja Scouting Application for INTO THE DEEP 2026 season",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#D4A017",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en-US",
+  "categories": ["productivity", "sports", "education"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "New Match",
+      "short_name": "New Match",
+      "description": "Start scouting a new match",
+      "url": "/?action=new-match",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}
