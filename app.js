@@ -439,7 +439,7 @@ async function generateQR(text, size = 300) {
                 height: size,
                 colorDark: '#000000',
                 colorLight: '#ffffff',
-                correctLevel: QRCode.CorrectLevel.M,
+                correctLevel: QRCode.CorrectLevel.L,  // Low error correction for max data
             });
             
             // Wait for QR to render
@@ -462,10 +462,12 @@ async function generateQR(text, size = 300) {
                     document.body.removeChild(container);
                     reject(new Error('QR generation failed - no canvas or img'));
                 } catch (e) {
-                    document.body.removeChild(container);
+                    if (document.body.contains(container)) {
+                        document.body.removeChild(container);
+                    }
                     reject(e);
                 }
-            }, 100);
+            }, 200);
         } catch (e) {
             reject(e);
         }
@@ -680,10 +682,10 @@ async function showQRForOffline() {
         modal.innerHTML = `
             <div class="share-content">
                 <h2 style="color: #DAA520; font-size: 28px;">Offline QR Code</h2>
-                <p style="font-size: 18px;"><strong>${matches.length} matches</strong> ready for offline sharing</p>
+                <p style="font-size: 18px;"><strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong> (${csvData.length} characters)</p>
                 <div class="qr-container">
                     <h3 style="color: #DAA520; font-size: 22px;">Generating QR Code...</h3>
-                    <div id="qrcode" style="min-height: 220px; display: flex; align-items: center; justify-content: center;">
+                    <div id="qrcode" style="min-height: 300px; display: flex; align-items: center; justify-content: center;">
                         <div style="color: #DAA520; font-size: 18px;">⏳ Please wait...</div>
                     </div>
                     <p id="qrInstructions" style="margin-top: 20px; color: #ccc; font-size: 14px;"></p>
@@ -699,8 +701,9 @@ async function showQRForOffline() {
         modal.onclick = (e) => { if (e.target === modal) closeModal(); };
         
         try {
-            // Generate QR with CSV data directly (no URL)
-            const qrUrl = await generateQR(csvData, 400);
+            console.log('Generating QR for', csvData.length, 'characters');
+            // Generate QR with CSV data directly (no URL) - use larger size for more capacity
+            const qrUrl = await generateQR(csvData, 500);
             window.currentQR = qrUrl;
             
             const qrContainer = modal.querySelector('#qrcode');
@@ -709,11 +712,12 @@ async function showQRForOffline() {
             
             if (qrContainer && titleEl) {
                 titleEl.textContent = 'Scan to Import Data (Offline)';
-                qrContainer.innerHTML = `<img src="${qrUrl}" alt="QR Code" style="max-width: 400px; border-radius: 12px;">`;
+                qrContainer.innerHTML = `<img src="${qrUrl}" alt="QR Code" style="max-width: 100%; max-height: 500px; border-radius: 12px;">`;
                 instructionsEl.textContent = 'Scan this QR code with another device using the "Collect (QR)" → "Scan QR From Image" button. No internet needed!';
                 const downloadBtn = modal.querySelector('.share-btn.download');
                 if (downloadBtn) downloadBtn.disabled = false;
             }
+            console.log('QR generated successfully');
         } catch (error) {
             console.error('QR generation error:', error);
             const qrContainer = modal.querySelector('#qrcode');
@@ -721,17 +725,18 @@ async function showQRForOffline() {
             const instructionsEl = modal.querySelector('#qrInstructions');
             
             if (qrContainer && titleEl) {
-                titleEl.textContent = 'Too Much Data for Single QR';
+                titleEl.textContent = 'QR Code Too Large';
                 qrContainer.innerHTML = `<p style="color: #ff9800; padding: 20px; text-align: center;">
-                    You have too many matches for a single QR code.<br><br>
+                    <strong>Data size:</strong> ${csvData.length} characters<br>
+                    <strong>QR limit:</strong> ~2,900 characters<br><br>
                     <strong>Offline Options:</strong><br>
                     • Download CSV and transfer via USB/SD card<br>
                     • Use "Copy CSV" and paste into another device<br>
-                    • Export smaller batches of matches
+                    • Export smaller batches (try 1-3 matches at a time)
                 </p>`;
                 instructionsEl.textContent = '';
             }
-            showNotification('Too much data for QR - use Download CSV or Copy CSV instead', 'warning');
+            showNotification('Data too large for QR - use Download CSV or Copy CSV', 'warning');
         }
     }, 100);
 }
