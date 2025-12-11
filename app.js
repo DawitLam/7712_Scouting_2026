@@ -441,46 +441,64 @@ function generateCSV() {
 async function generateQR(text, size = 300) {
     return new Promise((resolve, reject) => {
         try {
+            if (typeof QRCode === 'undefined') {
+                reject(new Error('QRCode library not loaded'));
+                return;
+            }
+            
             // Local, offline QR generation using vendored QRCode library
             const container = document.createElement('div');
             container.style.display = 'none';
             document.body.appendChild(container);
             
-            const qr = new QRCode(container, {
-                text,
-                width: size,
-                height: size,
-                colorDark: '#000000',
-                colorLight: '#ffffff',
-                correctLevel: QRCode.CorrectLevel.L,  // Low error correction for max data
-            });
-            
-            // Wait for QR to render
-            setTimeout(() => {
-                try {
-                    const canvas = container.querySelector('canvas');
-                    if (canvas && canvas.toDataURL) {
-                        const dataUrl = canvas.toDataURL('image/png');
-                        document.body.removeChild(container);
-                        resolve(dataUrl);
-                        return;
+            try {
+                const qr = new QRCode(container, {
+                    text,
+                    width: size,
+                    height: size,
+                    colorDark: '#000000',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.L,  // Low error correction for max data
+                });
+                
+                // Wait for QR to render
+                setTimeout(() => {
+                    try {
+                        const canvas = container.querySelector('canvas');
+                        if (canvas && canvas.toDataURL) {
+                            const dataUrl = canvas.toDataURL('image/png');
+                            if (document.body.contains(container)) {
+                                document.body.removeChild(container);
+                            }
+                            resolve(dataUrl);
+                            return;
+                        }
+                        const imgEl = container.querySelector('img');
+                        if (imgEl && imgEl.src) {
+                            const src = imgEl.src;
+                            if (document.body.contains(container)) {
+                                document.body.removeChild(container);
+                            }
+                            resolve(src);
+                            return;
+                        }
+                        if (document.body.contains(container)) {
+                            document.body.removeChild(container);
+                        }
+                        reject(new Error('QR generation failed - no canvas or img element found'));
+                    } catch (e) {
+                        if (document.body.contains(container)) {
+                            document.body.removeChild(container);
+                        }
+                        reject(e);
                     }
-                    const imgEl = container.querySelector('img');
-                    if (imgEl && imgEl.src) {
-                        const src = imgEl.src;
-                        document.body.removeChild(container);
-                        resolve(src);
-                        return;
-                    }
+                }, 300);
+            } catch (e) {
+                if (document.body.contains(container)) {
                     document.body.removeChild(container);
-                    reject(new Error('QR generation failed - no canvas or img'));
-                } catch (e) {
-                    if (document.body.contains(container)) {
-                        document.body.removeChild(container);
-                    }
-                    reject(e);
                 }
-            }, 200);
+                reject(e);
+            }
         } catch (e) {
             reject(e);
         }
@@ -801,14 +819,16 @@ async function showQRForOffline() {
             const instructionsEl = modal.querySelector('#qrInstructions');
             
             if (qrContainer && titleEl) {
-                titleEl.textContent = 'QR Code Too Large';
+                const qrStatus = typeof QRCode !== 'undefined' ? 'Library loaded' : 'Library NOT loaded';
+                titleEl.textContent = 'Cannot Generate QR Code';
                 qrContainer.innerHTML = `<p style="color: #ff9800; padding: 20px; text-align: center;">
-                    <strong>Data size:</strong> ${compactData.length} characters<br>
-                    <strong>QR limit:</strong> ~2,900 characters<br><br>
-                    <strong>Offline Options:</strong><br>
-                    • Download CSV and transfer via USB/SD card<br>
-                    • Use "Copy CSV" and paste into another device<br>
-                    • Export smaller batches (try 1-3 matches at a time)
+                    <strong>Status:</strong> ${error.message}<br>
+                    <strong>Library:</strong> ${qrStatus}<br>
+                    <strong>Data size:</strong> ${compactData.length} chars (limit: 2,900)<br><br>
+                    <strong>Offline Sharing Options:</strong><br>
+                    ✓ Download CSV and transfer via USB/SD card<br>
+                    ✓ Use "Copy CSV" and paste into another device<br>
+                    ✓ Use "Native Share" to send via Bluetooth/AirDrop
                 </p>`;
                 instructionsEl.textContent = '';
             }
