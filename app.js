@@ -215,6 +215,19 @@ function openImageQR() {
 
 function handleScannedContent(text) {
     try {
+        // Try compact QR format first
+        if (text.startsWith('T7712|')) {
+            const imported = decodeMatchesFromQR(text);
+            if (imported && imported.length > 0) {
+                const result = mergeImportedMatches(imported);
+                showNotification(`Imported ${result.added} new, skipped ${result.skipped}. Total: ${result.total}`, 'success');
+                loadData();
+                stopQRScan();
+                if (currentPage === 'collectorPage') { setTimeout(() => navigateToPage('homePage'), 600); }
+                return true;
+            }
+        }
+
         let maybeUrl = null;
         if (/^\/?\/?[\w.-]+\//.test(text)) {
             const normalized = /^https?:\/\//i.test(text) ? text : `https://${text.replace(/^\/+/, '')}`;
@@ -476,6 +489,69 @@ async function generateQR(text, size = 300) {
 
 function prefixForQR(csvText) { return `TEAM7712CSV\n${csvText}`; }
 
+function encodeMatchesForQR(matches) {
+    // Compact format: T7712| followed by pipe-delimited match data
+    // Format per match: matchNum|teamNum|alliance|scout|mobility|autoL1|autoL2|autoL3|autoL4|autoNetted|autoProc|teleopL1|teleopL2|teleopL3|teleopL4|teleopNetted|teleopProc|park|climb|notes
+    const encoded = matches.map(m => {
+        return [
+            m.matchNumber || 0,
+            m.teamNumber || 0,
+            (m.alliance || 'red')[0], // r or b
+            m.scoutName || '',
+            (m.mobility === 'Yes' ? 'Y' : 'N'),
+            m.autoCoralL1 || 0,
+            m.autoCoralL2 || 0,
+            m.autoCoralL3 || 0,
+            m.autoCoralL4 || 0,
+            m.autoAlgaeNetted || 0,
+            m.autoAlgaeProcessor || 0,
+            m.teleopCoralL1 || 0,
+            m.teleopCoralL2 || 0,
+            m.teleopCoralL3 || 0,
+            m.teleopCoralL4 || 0,
+            m.teleopAlgaeNetted || 0,
+            m.teleopAlgaeProcessor || 0,
+            (m.park === 'Yes' ? 'Y' : 'N'),
+            (m.climb || 'No')[0] === 'Y' ? (m.climb.includes('Deep') ? 'D' : 'S') : 'N',
+            (m.notes || '').replace(/\|/g, ';').substring(0, 100) // limit notes, replace pipes
+        ].join('|');
+    }).join('\n');
+    return 'T7712|' + encoded;
+}
+
+function decodeMatchesFromQR(qrText) {
+    if (!qrText.startsWith('T7712|')) return null;
+    const lines = qrText.substring(6).split('\n');
+    return lines.map(line => {
+        const parts = line.split('|');
+        if (parts.length < 19) return null;
+        return {
+            matchNumber: parseInt(parts[0]) || 0,
+            teamNumber: parseInt(parts[1]) || 0,
+            alliance: parts[2] === 'r' ? 'red' : 'blue',
+            scoutName: parts[3] || '',
+            mobility: parts[4] === 'Y' ? 'Yes' : 'No',
+            autoCoralL1: parseInt(parts[5]) || 0,
+            autoCoralL2: parseInt(parts[6]) || 0,
+            autoCoralL3: parseInt(parts[7]) || 0,
+            autoCoralL4: parseInt(parts[8]) || 0,
+            autoAlgaeNetted: parseInt(parts[9]) || 0,
+            autoAlgaeProcessor: parseInt(parts[10]) || 0,
+            teleopCoralL1: parseInt(parts[11]) || 0,
+            teleopCoralL2: parseInt(parts[12]) || 0,
+            teleopCoralL3: parseInt(parts[13]) || 0,
+            teleopCoralL4: parseInt(parts[14]) || 0,
+            teleopAlgaeNetted: parseInt(parts[15]) || 0,
+            teleopAlgaeProcessor: parseInt(parts[16]) || 0,
+            park: parts[17] === 'Y' ? 'Yes' : 'No',
+            climb: parts[18] === 'D' ? 'Yes, Deep' : (parts[18] === 'S' ? 'Yes, Shallow' : 'No'),
+            notes: parts[19] || '',
+            timestamp: new Date().toISOString(),
+            id: Date.now() + Math.random()
+        };
+    }).filter(m => m !== null);
+}
+
 function buildImportUrl(csvText) {
     const base = window.location.origin;
     return `${base}/#import?csv=${encodeURIComponent(csvText)}`;
@@ -670,8 +746,8 @@ function openClearDataModal() {
 function showQRModal(type) { closeModal(); setTimeout(() => openShareModal(), 100); }
 
 async function showQRForOffline() {
-    const csvData = window.currentCSV || generateCSV();
     const matches = getLocalMatches();
+    const compactData = encodeMatchesForQR(matches);
     
     closeModal();
     
@@ -682,7 +758,7 @@ async function showQRForOffline() {
         modal.innerHTML = `
             <div class="share-content">
                 <h2 style="color: #DAA520; font-size: 28px;">Offline QR Code</h2>
-                <p style="font-size: 18px;"><strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong> (${csvData.length} characters)</p>
+                <p style="font-size: 18px;"><strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong> (${compactData.length} characters)</p>
                 <div class="qr-container">
                     <h3 style="color: #DAA520; font-size: 22px;">Generating QR Code...</h3>
                     <div id="qrcode" style="min-height: 300px; display: flex; align-items: center; justify-content: center;">
@@ -701,9 +777,9 @@ async function showQRForOffline() {
         modal.onclick = (e) => { if (e.target === modal) closeModal(); };
         
         try {
-            console.log('Generating QR for', csvData.length, 'characters');
-            // Generate QR with CSV data directly (no URL) - use larger size for more capacity
-            const qrUrl = await generateQR(csvData, 500);
+            console.log('Generating QR for', compactData.length, 'characters');
+            // Generate QR with compact encoded data - use larger size for more capacity
+            const qrUrl = await generateQR(compactData, 500);
             window.currentQR = qrUrl;
             
             const qrContainer = modal.querySelector('#qrcode');
@@ -727,7 +803,7 @@ async function showQRForOffline() {
             if (qrContainer && titleEl) {
                 titleEl.textContent = 'QR Code Too Large';
                 qrContainer.innerHTML = `<p style="color: #ff9800; padding: 20px; text-align: center;">
-                    <strong>Data size:</strong> ${csvData.length} characters<br>
+                    <strong>Data size:</strong> ${compactData.length} characters<br>
                     <strong>QR limit:</strong> ~2,900 characters<br><br>
                     <strong>Offline Options:</strong><br>
                     • Download CSV and transfer via USB/SD card<br>
