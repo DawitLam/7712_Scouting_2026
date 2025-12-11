@@ -500,6 +500,7 @@ function openExportModal() {
             <div class="share-buttons">
                 <button class="share-btn copy" onclick="copyCSV()">Copy CSV</button>
                 <button class="share-btn download" onclick="downloadCSV()">Download CSV</button>
+                <button class="share-btn qr" onclick="showQRForOffline()">QR Code (Offline)</button>
                 <button class="share-btn native" onclick="shareNative()">Native Share</button>
                 <button class="share-btn close" onclick="closeModal()">Close</button>
             </div>
@@ -665,6 +666,75 @@ function openClearDataModal() {
 }
 
 function showQRModal(type) { closeModal(); setTimeout(() => openShareModal(), 100); }
+
+async function showQRForOffline() {
+    const csvData = window.currentCSV || generateCSV();
+    const matches = getLocalMatches();
+    
+    closeModal();
+    
+    setTimeout(async () => {
+        isModalOpen = true;
+        const modal = document.createElement('div');
+        modal.className = 'share-modal';
+        modal.innerHTML = `
+            <div class="share-content">
+                <h2 style="color: #DAA520; font-size: 28px;">Offline QR Code</h2>
+                <p style="font-size: 18px;"><strong>${matches.length} matches</strong> ready for offline sharing</p>
+                <div class="qr-container">
+                    <h3 style="color: #DAA520; font-size: 22px;">Generating QR Code...</h3>
+                    <div id="qrcode" style="min-height: 220px; display: flex; align-items: center; justify-content: center;">
+                        <div style="color: #DAA520; font-size: 18px;">⏳ Please wait...</div>
+                    </div>
+                    <p id="qrInstructions" style="margin-top: 20px; color: #ccc; font-size: 14px;"></p>
+                </div>
+                <div class="share-buttons">
+                    <button class="share-btn download" onclick="downloadQR()" disabled>Save QR Code</button>
+                    <button class="share-btn close" onclick="closeModal()">Close</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        window.currentModal = modal;
+        modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+        
+        try {
+            // Generate QR with CSV data directly (no URL)
+            const qrUrl = await generateQR(csvData, 400);
+            window.currentQR = qrUrl;
+            
+            const qrContainer = modal.querySelector('#qrcode');
+            const titleEl = modal.querySelector('.qr-container h3');
+            const instructionsEl = modal.querySelector('#qrInstructions');
+            
+            if (qrContainer && titleEl) {
+                titleEl.textContent = 'Scan to Import Data (Offline)';
+                qrContainer.innerHTML = `<img src="${qrUrl}" alt="QR Code" style="max-width: 400px; border-radius: 12px;">`;
+                instructionsEl.textContent = 'Scan this QR code with another device using the "Collect (QR)" → "Scan QR From Image" button. No internet needed!';
+                const downloadBtn = modal.querySelector('.share-btn.download');
+                if (downloadBtn) downloadBtn.disabled = false;
+            }
+        } catch (error) {
+            console.error('QR generation error:', error);
+            const qrContainer = modal.querySelector('#qrcode');
+            const titleEl = modal.querySelector('.qr-container h3');
+            const instructionsEl = modal.querySelector('#qrInstructions');
+            
+            if (qrContainer && titleEl) {
+                titleEl.textContent = 'Too Much Data for Single QR';
+                qrContainer.innerHTML = `<p style="color: #ff9800; padding: 20px; text-align: center;">
+                    You have too many matches for a single QR code.<br><br>
+                    <strong>Offline Options:</strong><br>
+                    • Download CSV and transfer via USB/SD card<br>
+                    • Use "Copy CSV" and paste into another device<br>
+                    • Export smaller batches of matches
+                </p>`;
+                instructionsEl.textContent = '';
+            }
+            showNotification('Too much data for QR - use Download CSV or Copy CSV instead', 'warning');
+        }
+    }, 100);
+}
 
 function copyCSV() {
     navigator.clipboard.writeText(window.currentCSV).then(() => {
