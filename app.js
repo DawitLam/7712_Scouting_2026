@@ -500,7 +500,6 @@ function openExportModal() {
             <div class="share-buttons">
                 <button class="share-btn copy" onclick="copyCSV()">Copy CSV</button>
                 <button class="share-btn download" onclick="downloadCSV()">Download CSV</button>
-                <button class="share-btn qr" onclick="showQRModal('csv')">QR Code</button>
                 <button class="share-btn native" onclick="shareNative()">Native Share</button>
                 <button class="share-btn close" onclick="closeModal()">Close</button>
             </div>
