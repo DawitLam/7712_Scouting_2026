@@ -177,26 +177,17 @@
         <div id="collectorPage" class="page">
             <button class="back-btn" onclick="navigateBack()">Back</button>
             <h2>Collect Data (QR)</h2>
-            <p id="collectorNotice"></p>
-            <div style="margin: 10px 0;">
-                <button class="btn" onclick="startQRScan()">Start Camera Scan</button>
-                <button class="btn" onclick="stopQRScan()">Stop Camera</button>
-                <button class="btn" onclick="openImageQR()">Scan From Image</button>
+            <p style="margin: 15px 0; color: #ccc; font-size: 16px;">
+                To import data from another device:<br>
+                1. On the other device, go to Share Data and show the QR code.<br>
+                2. Take a screenshot or photo of that QR code.<br>
+                3. Click "Scan QR From Image" below and upload the photo.<br>
+                <strong>Works 100% offline — no internet needed.</strong>
+            </p>
+            <div style="margin: 20px 0; text-align: center;">
+                <button class="btn success" style="font-size: 18px; padding: 20px 40px;" onclick="openImageQR()">📷 Scan QR From Image</button>
             </div>
-            <div id="qrScanner" style="display:none; margin: 15px 0;">
-                <video id="qrVideo" playsinline style="width:100%; max-width:600px; border-radius: 15px;"></video>
-                <canvas id="qrCanvas" style="display:none"></canvas>
-            </div>
-            <h3>Paste Import Link</h3>
-            <div class="form-group">
-                <input type="text" id="importLinkInput" placeholder="Paste import link (/#import?csv=...) here">
-                <button class="btn" onclick="processImportLink()">Import From Link</button>
-            </div>
-            <h3>Or Paste CSV Text</h3>
-            <div class="form-group">
-                <textarea id="rawCSVInput" rows="5" placeholder="Paste CSV rows here..."></textarea>
-                <button class="btn" onclick="processCSVText()">Import From CSV</button>
-            </div>
+            <canvas id="qrCanvas" style="display:none"></canvas>
         </div>
     </div>
 
