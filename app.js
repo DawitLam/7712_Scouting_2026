@@ -490,7 +490,6 @@ function openExportModal() {
     const matches = getLocalMatches();
     if (matches.length === 0) { showNotification('No data to export yet', 'warning'); return; }
     isModalOpen = true;
-    history.pushState({page: currentPage, modal: 'export'}, '', getPageHash(currentPage));
     const csvData = generateCSV();
     const modal = document.createElement('div');
     modal.className = 'share-modal';
@@ -524,7 +523,6 @@ async function openShareModal() {
     
     // Show loading modal first
     isModalOpen = true;
-    history.pushState({page: currentPage, modal: 'share'}, '', getPageHash(currentPage));
     const modal = document.createElement('div');
     modal.className = 'share-modal';
     modal.innerHTML = `
@@ -648,7 +646,6 @@ function openClearDataModal() {
     closeModal();
     setTimeout(() => {
         isModalOpen = true;
-        history.pushState({page: currentPage, modal: 'clear'}, '', getPageHash(currentPage));
         const modal = document.createElement('div');
         modal.className = 'share-modal';
         modal.innerHTML = `
@@ -720,8 +717,11 @@ function closeModal() {
     if (window.currentModal) {
         window.currentModal.remove();
         window.currentModal = null;
+        window.currentCSV = null;
+        window.currentImportUrl = null;
+        window.currentQR = null;
         isModalOpen = false;
-        history.pushState({page: currentPage, modal: null}, '', getPageHash(currentPage));
+        history.replaceState({page: currentPage, modal: null}, '', getPageHash(currentPage));
     }
 }
 
