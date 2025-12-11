@@ -293,7 +293,6 @@ function submitMatch(event) {
         matchNumber: parseInt(formData.get('matchNumber')),
         teamNumber: parseInt(formData.get('teamNumber')),
         location: (formData.get('location') || '').trim(),
-        eventLevel: formData.get('eventLevel') || '',
         alliance: formData.get('alliance'),
         scoutName: formData.get('scoutName'),
         mobility: formData.get('mobility') || 'No',
@@ -379,7 +378,7 @@ function loadData() {
             <div class="match-card">
                 <div class="match-header">Match ${match.matchNumber} - Team ${match.teamNumber}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Alliance:</strong> ${match.alliance} | <strong>Scout:</strong> ${match.scoutName}</div>
-                ${(match.location || match.eventLevel) ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Event:</strong> ${match.location || 'N/A'} ${match.eventLevel ? '('+match.eventLevel+')' : ''}</div>` : ''}
+                ${match.location ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Location:</strong> ${match.location}</div>` : ''}
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> Mobility=${match.mobility}, ${totalAutoCoral} Coral, ${match.autoAlgaeNetted || 0} Algae Netted</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> ${totalTeleopCoral} Coral, ${match.teleopAlgaeNetted || 0} Algae Netted</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Park=${match.park}, Climb=${match.climb}</div>
