@@ -440,67 +440,73 @@ function generateCSV() {
 
 async function generateQR(text, size = 300) {
     return new Promise((resolve, reject) => {
+        if (typeof QRCode === 'undefined') {
+            reject(new Error('QRCode library not loaded'));
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.style.position = 'fixed';
+        container.style.left = '-10000px';
+        container.style.top = '-10000px';
+        container.style.width = `${size}px`;
+        container.style.height = `${size}px`;
+        container.style.visibility = 'hidden';
+        document.body.appendChild(container);
+
+        const cleanup = () => {
+            if (document.body.contains(container)) {
+                document.body.removeChild(container);
+            }
+        };
+
         try {
-            if (typeof QRCode === 'undefined') {
-                reject(new Error('QRCode library not loaded'));
-                return;
-            }
-            
-            // Local, offline QR generation using vendored QRCode library
-            const container = document.createElement('div');
-            container.style.display = 'none';
-            document.body.appendChild(container);
-            
-            try {
-                const qr = new QRCode(container, {
-                    text,
-                    width: size,
-                    height: size,
-                    colorDark: '#000000',
-                    colorLight: '#ffffff',
-                    correctLevel: QRCode.CorrectLevel.L,  // Low error correction for max data
-                });
-                
-                // Wait for QR to render
-                setTimeout(() => {
-                    try {
-                        const canvas = container.querySelector('canvas');
-                        if (canvas && canvas.toDataURL) {
-                            const dataUrl = canvas.toDataURL('image/png');
-                            if (document.body.contains(container)) {
-                                document.body.removeChild(container);
-                            }
-                            resolve(dataUrl);
-                            return;
-                        }
-                        const imgEl = container.querySelector('img');
-                        if (imgEl && imgEl.src) {
-                            const src = imgEl.src;
-                            if (document.body.contains(container)) {
-                                document.body.removeChild(container);
-                            }
-                            resolve(src);
-                            return;
-                        }
-                        if (document.body.contains(container)) {
-                            document.body.removeChild(container);
-                        }
-                        reject(new Error('QR generation failed - no canvas or img element found'));
-                    } catch (e) {
-                        if (document.body.contains(container)) {
-                            document.body.removeChild(container);
-                        }
-                        reject(e);
+            const qr = new QRCode(container, {
+                text,
+                width: size,
+                height: size,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.L,
+            });
+
+            let attempts = 0;
+            const maxAttempts = 20; // ~2 seconds total wait time
+
+            const tryResolve = () => {
+                attempts += 1;
+                try {
+                    const canvas = container.querySelector('canvas');
+                    if (canvas && typeof canvas.toDataURL === 'function') {
+                        const dataUrl = canvas.toDataURL('image/png');
+                        cleanup();
+                        resolve(dataUrl);
+                        return;
                     }
-                }, 300);
-            } catch (e) {
-                if (document.body.contains(container)) {
-                    document.body.removeChild(container);
+                    const imgEl = container.querySelector('img');
+                    if (imgEl && imgEl.src && !imgEl.src.startsWith('about:blank')) {
+                        cleanup();
+                        resolve(imgEl.src);
+                        return;
+                    }
+                } catch (err) {
+                    cleanup();
+                    reject(err);
+                    return;
                 }
-                reject(e);
-            }
-        } catch (e) {
-            reject(e);
+
+                if (attempts >= maxAttempts) {
+                    cleanup();
+                    reject(new Error('QR rendering timed out'));
+                    return;
+                }
+                setTimeout(tryResolve, 100);
+            };
+
+            setTimeout(tryResolve, 120);
+        } catch (err) {
+            cleanup();
+            reject(err);
         }
     });
 }
