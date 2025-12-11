@@ -64,11 +64,16 @@ function getPageHash(pageId) {
 
 function navigateToPage(pageId) {
     if (isModalOpen) { closeModal(); return; }
-    navigationHistory.push(pageId);
+    if (navigationHistory[navigationHistory.length - 1] !== pageId) {
+        navigationHistory.push(pageId);
+    }
     currentPage = pageId;
-    if (pageId === 'homePage') document.body.classList.add('home-active'); else document.body.classList.remove('home-active');
     history.pushState({page: pageId, modal: null}, '', getPageHash(pageId));
-    showPage(pageId, false);
+    document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
+    if (pageId === 'homePage') document.body.classList.add('home-active'); else document.body.classList.remove('home-active');
+    if (pageId === 'dataPage') loadData();
+    if (pageId === 'collectorPage') initCollector();
 }
 
 function navigateBack() {
@@ -90,9 +95,7 @@ function showPage(pageId, addToHistory = true) {
     document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
     document.getElementById(pageId).classList.add('active');
     if (currentPage === 'collectorPage' && pageId !== 'collectorPage') { stopQRScan(); }
-    currentPage = pageId;
     if (pageId === 'homePage') document.body.classList.add('home-active'); else document.body.classList.remove('home-active');
-    if (addToHistory) navigateToPage(pageId);
     if (pageId === 'dataPage') loadData();
     if (pageId === 'collectorPage') initCollector();
 }
@@ -422,28 +425,51 @@ function generateCSV() {
     return [headers.join(','), ...rows].join('\n');
 }
 
-function generateQR(text, size = 300) {
-    // Local, offline QR generation using vendored QRCode library
-    const container = document.createElement('div');
-    const qr = new QRCode(container, {
-        text,
-        width: size,
-        height: size,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M,
+async function generateQR(text, size = 300) {
+    return new Promise((resolve, reject) => {
+        try {
+            // Local, offline QR generation using vendored QRCode library
+            const container = document.createElement('div');
+            container.style.display = 'none';
+            document.body.appendChild(container);
+            
+            const qr = new QRCode(container, {
+                text,
+                width: size,
+                height: size,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.M,
+            });
+            
+            // Wait for QR to render
+            setTimeout(() => {
+                try {
+                    const canvas = container.querySelector('canvas');
+                    if (canvas && canvas.toDataURL) {
+                        const dataUrl = canvas.toDataURL('image/png');
+                        document.body.removeChild(container);
+                        resolve(dataUrl);
+                        return;
+                    }
+                    const imgEl = container.querySelector('img');
+                    if (imgEl && imgEl.src) {
+                        const src = imgEl.src;
+                        document.body.removeChild(container);
+                        resolve(src);
+                        return;
+                    }
+                    document.body.removeChild(container);
+                    reject(new Error('QR generation failed - no canvas or img'));
+                } catch (e) {
+                    document.body.removeChild(container);
+                    reject(e);
+                }
+            }, 100);
+        } catch (e) {
+            reject(e);
+        }
     });
-    const imgEl = container.querySelector('img');
-    if (imgEl && imgEl.src) return imgEl.src;
-    const canvas = container.querySelector('canvas');
-    if (canvas && canvas.toDataURL) return canvas.toDataURL('image/png');
-    const svgEl = container.querySelector('svg');
-    if (svgEl) {
-        const serializer = new XMLSerializer();
-        const svgString = serializer.serializeToString(svgEl);
-        return `data:image/svg+xml;base64,${btoa(svgString)}`;
-    }
-    throw new Error('QR generation failed');
 }
 
 function prefixForQR(csvText) { return `TEAM7712CSV\n${csvText}`; }
@@ -489,14 +515,16 @@ function openExportModal() {
     modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 }
 
-function openShareModal() {
+async function openShareModal() {
     const matches = getLocalMatches();
     if (matches.length === 0) { showNotification('No data to share yet', 'warning'); return; }
-    isModalOpen = true;
-    history.pushState({page: currentPage, modal: 'share'}, '', getPageHash(currentPage));
+    
     const csvData = generateCSV();
     const importUrl = buildImportUrl(csvData);
-    const qrUrl = generateQR(importUrl);
+    
+    // Show loading modal first
+    isModalOpen = true;
+    history.pushState({page: currentPage, modal: 'share'}, '', getPageHash(currentPage));
     const modal = document.createElement('div');
     modal.className = 'share-modal';
     modal.innerHTML = `
@@ -504,14 +532,15 @@ function openShareModal() {
             <h2 style="color: #DAA520; font-size: 28px;">Share Scouting Data</h2>
             <p style="font-size: 18px;"><strong>${matches.length} matches</strong> ready to share via QR code</p>
             <div class="qr-container">
-                <h3 style="color: #DAA520; font-size: 22px;">Scan to Import Data</h3>
-                <div id="qrcode"><img src="${qrUrl}" alt="QR Code" style="max-width: 220px; border-radius: 12px;"></div>
-                <p style="margin-top: 20px; color: #ccc; font-size: 16px;">Scan this QR to open an import page that<br>automatically loads your scouting data.</p>
+                <h3 style="color: #DAA520; font-size: 22px;">Generating QR Code...</h3>
+                <div id="qrcode" style="min-height: 220px; display: flex; align-items: center; justify-content: center;">
+                    <div style="color: #DAA520; font-size: 18px;">⏳ Please wait...</div>
+                </div>
             </div>
             <div class="share-buttons">
                 <button class="share-btn copy" onclick="copyCSV()">Copy Data</button>
                 <button class="share-btn copy" onclick="copyImportLink()">Copy Import Link</button>
-                <button class="share-btn download" onclick="downloadQR()">Save QR Code</button>
+                <button class="share-btn download" onclick="downloadQR()" disabled>Save QR Code</button>
                 <button class="share-btn danger" onclick="openClearDataModal()">Clear Data</button>
                 <button class="share-btn close" onclick="closeModal()">Close</button>
             </div>
@@ -521,8 +550,32 @@ function openShareModal() {
     window.currentModal = modal;
     window.currentCSV = csvData;
     window.currentImportUrl = importUrl;
-    window.currentQR = qrUrl;
     modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+    
+    // Generate QR code asynchronously
+    try {
+        const qrUrl = await generateQR(importUrl, 300);
+        window.currentQR = qrUrl;
+        
+        // Update modal with QR code
+        const qrContainer = modal.querySelector('#qrcode');
+        const titleEl = modal.querySelector('.qr-container h3');
+        if (qrContainer && titleEl) {
+            titleEl.textContent = 'Scan to Import Data';
+            qrContainer.innerHTML = `<img src="${qrUrl}" alt="QR Code" style="max-width: 220px; border-radius: 12px;">`;
+            const downloadBtn = modal.querySelector('.share-btn.download');
+            if (downloadBtn) downloadBtn.disabled = false;
+        }
+    } catch (error) {
+        console.error('QR generation error:', error);
+        const qrContainer = modal.querySelector('#qrcode');
+        const titleEl = modal.querySelector('.qr-container h3');
+        if (qrContainer && titleEl) {
+            titleEl.textContent = 'QR Generation Failed';
+            qrContainer.innerHTML = `<p style="color: #ff9800; padding: 20px;">Too much data for QR code.<br>Use Copy Data or Copy Import Link instead.</p>`;
+        }
+        showNotification('QR generation failed - use Copy buttons instead', 'warning');
+    }
 }
 
 function parseCSVData(csvText) {
