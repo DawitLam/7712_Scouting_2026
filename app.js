@@ -310,9 +310,7 @@ function submitMatch(event) {
         teleopAlgaeNetted: parseInt(document.getElementById('teleopAlgaeNetted').value || 0),
         teleopAlgaeProcessor: parseInt(document.getElementById('teleopAlgaeProcessor').value || 0),
         park: formData.get('park') || 'No',
-        climb: formData.get('climb') || 'No',
-        shallow: formData.get('shallow') || 'No',
-        deep: formData.get('deep') || 'No',
+        climb: formData.get('climb') || 'Yes, Shallow',
         notes: formData.get('notes') || '',
         timestamp: new Date().toISOString(),
         id: Date.now()
@@ -384,7 +382,7 @@ function loadData() {
                 ${(match.location || match.eventLevel) ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Event:</strong> ${match.location || 'N/A'} ${match.eventLevel ? '('+match.eventLevel+')' : ''}</div>` : ''}
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> Mobility=${match.mobility}, ${totalAutoCoral} Coral, ${match.autoAlgaeNetted || 0} Algae Netted</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> ${totalTeleopCoral} Coral, ${match.teleopAlgaeNetted || 0} Algae Netted</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Park=${match.park}, Climb=${match.climb}, Shallow=${match.shallow}, Deep=${match.deep}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Park=${match.park}, Climb=${match.climb}</div>
                 ${match.notes ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Notes:</strong> ${match.notes}</div>` : ''}
                 <div style="margin-top: 15px; font-size: 14px; color: #aaa;">Recorded: ${new Date(match.timestamp).toLocaleString()}</div>
             </div>
@@ -395,7 +393,7 @@ function loadData() {
 
 function generateCSV() {
     const matches = getLocalMatches();
-    const headers = ['Match','Team','Alliance','Scout','Mobility','AutoCoralL1','AutoCoralL2','AutoCoralL3','AutoCoralL4','AutoAlgaeNetted','AutoAlgaeProcessor','TeleopCoralL1','TeleopCoralL2','TeleopCoralL3','TeleopCoralL4','TeleopAlgaeNetted','TeleopAlgaeProcessor','Park','Climb','Shallow','Deep','Notes','Timestamp'];
+    const headers = ['Match','Team','Alliance','Scout','Mobility','AutoCoralL1','AutoCoralL2','AutoCoralL3','AutoCoralL4','AutoAlgaeNetted','AutoAlgaeProcessor','TeleopCoralL1','TeleopCoralL2','TeleopCoralL3','TeleopCoralL4','TeleopAlgaeNetted','TeleopAlgaeProcessor','Park','Climb','Notes','Timestamp'];
     const rows = matches.map(m => {
         const safeNotes = (m.notes || '').replace(/"/g, '""');
         return [
@@ -418,8 +416,6 @@ function generateCSV() {
             m.teleopAlgaeProcessor,
             m.park,
             m.climb,
-            m.shallow,
-            m.deep,
             `"${safeNotes}"`,
             m.timestamp
         ].join(',');
@@ -534,7 +530,7 @@ function parseCSVData(csvText) {
     const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
     if (lines.length < 2) { throw new Error('CSV must include a header row and at least one match'); }
     const headers = splitCSVLine(lines[0]);
-    const required = ['Match','Team','Alliance','Scout','Mobility','AutoCoralL1','AutoCoralL2','AutoCoralL3','AutoCoralL4','AutoAlgaeNetted','AutoAlgaeProcessor','TeleopCoralL1','TeleopCoralL2','TeleopCoralL3','TeleopCoralL4','TeleopAlgaeNetted','TeleopAlgaeProcessor','Park','Climb','Shallow','Deep'];
+    const required = ['Match','Team','Alliance','Scout','Mobility','AutoCoralL1','AutoCoralL2','AutoCoralL3','AutoCoralL4','AutoAlgaeNetted','AutoAlgaeProcessor','TeleopCoralL1','TeleopCoralL2','TeleopCoralL3','TeleopCoralL4','TeleopAlgaeNetted','TeleopAlgaeProcessor','Park','Climb'];
     required.forEach(header => { if (!headers.includes(header)) { throw new Error(`Missing required column: ${header}`); } });
     const index = {}; headers.forEach((header, idx) => { index[header] = idx; });
     return lines.slice(1).map((line, lineNumber) => {
@@ -564,9 +560,7 @@ function parseCSVData(csvText) {
             teleopAlgaeNetted: toNumber(getValue('TeleopAlgaeNetted')),
             teleopAlgaeProcessor: toNumber(getValue('TeleopAlgaeProcessor')),
             park: toYesNo(getValue('Park')),
-            climb: toYesNo(getValue('Climb')),
-            shallow: toYesNo(getValue('Shallow')),
-            deep: toYesNo(getValue('Deep')),
+            climb: getValue('Climb') || 'Yes, Shallow',
             notes: notes,
             timestamp,
             id: Date.now() + lineNumber
