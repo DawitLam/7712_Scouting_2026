@@ -30,6 +30,12 @@ window.addEventListener('DOMContentLoaded', function () {
     } catch (e) {
         // best-effort cleanup
     }
+
+    const defenseSelect = document.getElementById('playedDefense');
+    if (defenseSelect) {
+        defenseSelect.addEventListener('change', handleDefenseToggle);
+        handleDefenseToggle();
+    }
 });
 
 // Core app logic
@@ -37,7 +43,23 @@ const MATCHES_KEY = 'team7712_matches';
 let navigationHistory = ['homePage'];
 let currentPage = 'homePage';
 let isModalOpen = false;
+let defensePollInterval = null;
 let modalHistory = [];
+let currentQRChunks = [];
+let currentQRChunkIndex = 0;
+let currentQRImages = [];
+const QR_MAX_PAYLOAD_CHARS = 2800;
+const DEFENSE_ZONE_CODES = {
+    'None': 'N',
+    'Near Reef': 'R',
+    'Midfield': 'M',
+    'Loading Zone': 'L',
+    'Barge': 'B'
+};
+const DEFENSE_ZONE_LABELS = Object.keys(DEFENSE_ZONE_CODES).reduce((acc, key) => {
+    acc[DEFENSE_ZONE_CODES[key]] = key;
+    return acc;
+}, {});
 
 window.addEventListener('load', function() {
     history.replaceState({page: 'homePage', modal: null}, '', '#home');
@@ -98,7 +120,172 @@ function showPage(pageId, addToHistory = true) {
     if (pageId === 'homePage') document.body.classList.add('home-active'); else document.body.classList.remove('home-active');
     if (pageId === 'dataPage') loadData();
     if (pageId === 'collectorPage') initCollector();
+    if (pageId === 'scoutPage') {
+        const defenseSelect = document.getElementById('playedDefense');
+        if (defenseSelect && !defenseSelect.hasAttribute('data-listener-attached')) {
+            defenseSelect.addEventListener('change', handleDefenseToggle);
+            defenseSelect.setAttribute('data-listener-attached', 'true');
+            handleDefenseToggle();
+        }
+
+        // Start a short-lived poll to catch any UI frameworks or styling layers that
+        // might not trigger native change events. This will stop when user leaves.
+        let lastVal = defenseSelect ? defenseSelect.value : null;
+        if (!defensePollInterval) {
+            defensePollInterval = setInterval(() => {
+                const el = document.getElementById('playedDefense');
+                if (!el) return;
+                if (el.value !== lastVal) {
+                    lastVal = el.value;
+                    handleDefenseToggle();
+                    console.debug('defensePoll detected change', lastVal);
+                }
+            }, 250);
+        }
+    } else {
+        // Clear polling when leaving the scout page
+        if (defensePollInterval) { clearInterval(defensePollInterval); defensePollInterval = null; }
+    }
 }
+
+function handleDefenseToggle() {
+    const defenseSelect = document.getElementById('playedDefense');
+    const zoneSelect = document.getElementById('defenseZone');
+    if (!defenseSelect || !zoneSelect) return;
+    const isDefense = defenseSelect.value === 'Yes';
+    zoneSelect.disabled = !isDefense;
+    if (!isDefense) {
+        zoneSelect.value = 'None';
+    }
+}
+
+// Temporary debug helper to programmatically test whether the defense UI reacts correctly.
+// Remove temporary debug helper runDefenseHealthCheck
+
+// Programmatic QR-chunk testing helper (call from console):
+// window.testQRChunking(50) -> returns number of chunks and logs example payload sizes
+window.testQRChunking = function (numMatches = 50) {
+    const now = new Date().toISOString();
+    const makeMatch = (i) => ({
+        matchNumber: i + 1,
+        teamNumber: 7712 + (i % 6),
+        alliance: i % 2 === 0 ? 'red' : 'blue',
+        scoutName: `Test${i}`,
+        mobility: 'Yes',
+        autoCoralL1: i % 3,
+        autoCoralL2: i % 2,
+        autoCoralL3: 0,
+        autoCoralL4: 0,
+        autoAlgaeNetted: 0,
+        autoAlgaeProcessor: 0,
+        teleopCoralL1: 1,
+        teleopCoralL2: 0,
+        teleopCoralL3: 0,
+        teleopCoralL4: 0,
+        teleopAlgaeNetted: 0,
+        teleopAlgaeProcessor: 0,
+        playedDefense: i % 4 === 0 ? 'Yes' : 'No',
+        defenseZone: i % 4 === 0 ? 'Near Reef' : 'None',
+        park: 'No',
+        climb: 'No',
+        notes: 'Auto-generated for QR chunk test',
+        timestamp: now,
+        id: Date.now() + i
+    });
+
+    const matches = Array.from({ length: numMatches }, (_, i) => makeMatch(i));
+    const chunks = encodeMatchesForQRChunks(matches, QR_MAX_PAYLOAD_CHARS);
+    console.log(`testQRChunking: ${numMatches} matches -> ${chunks.length} chunk(s) (QR_MAX_PAYLOAD_CHARS=${QR_MAX_PAYLOAD_CHARS})`);
+    chunks.forEach((c, idx) => console.log(`chunk ${idx + 1} length=${c.length}`));
+    return { numMatches, chunkCount: chunks.length, chunkLengths: chunks.map(c => c.length) };
+};
+
+// Show a quick QR for any text (useful for testing). Usage: window.quickShowQR('hello world', 300)
+window.quickShowQR = async function (text = 'Test', size = 300) {
+    try {
+        const qrUrl = await generateQR(text, size);
+        // Reuse modal pattern
+        closeModal();
+        setTimeout(() => {
+            isModalOpen = true;
+            const modal = document.createElement('div');
+            modal.className = 'share-modal';
+            modal.innerHTML = `
+                <div class="share-content">
+                    <h2 style="color: #DAA520; font-size: 28px;">Quick QR</h2>
+                    <p style="font-size: 18px;">Testing QR content</p>
+                    <div class="qr-container">
+                        <div id="qrcode" style="min-height: 220px; display:flex; align-items:center; justify-content:center;"></div>
+                    </div>
+                    <div class="share-buttons">
+                        <button class="share-btn download" onclick="downloadQR()">Save QR</button>
+                        <button class="share-btn close" onclick="closeModal()">Close</button>
+                    </div>
+                </div>`;
+            // Attach image load/error handlers (network fallback may be used)
+            setTimeout(() => {
+                const qrc = modal.querySelector('#qrcode');
+                if (!qrc) return;
+                qrc.innerHTML = '';
+                const img = new Image();
+                img.alt = 'Quick QR';
+                img.style.maxWidth = '220px';
+                img.style.borderRadius = '12px';
+                img.onload = () => qrc.appendChild(img);
+                img.onerror = (err) => {
+                    console.warn('quickShowQR image failed to load', err, qrUrl);
+                    qrc.innerHTML = `<p style="color:#ff9800; padding:20px; text-align:center;">Could not load QR image.<br><a href="${qrUrl}" target="_blank" rel="noopener">Open QR in new tab</a></p>`;
+                };
+                img.src = qrUrl;
+            }, 60);
+            document.body.appendChild(modal);
+            window.currentModal = modal;
+            window.currentQR = qrUrl;
+            modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+        }, 80);
+    } catch (err) {
+        console.error('quickShowQR error:', err);
+        showNotification('Quick QR generation failed: ' + err.message, 'error');
+    }
+};
+
+// Inject synthetic matches into localStorage for manual/manual UI testing.
+// Call from Console: window.injectTestMatches(100)
+window.injectTestMatches = function (numMatches = 50) {
+    const existing = getLocalMatches();
+    const now = new Date().toISOString();
+    for (let i = 0; i < numMatches; i++) {
+        existing.push({
+            matchNumber: existing.length + 1,
+            teamNumber: 7712 + (i % 6),
+            alliance: i % 2 === 0 ? 'red' : 'blue',
+            scoutName: `Auto${i}`,
+            mobility: 'Yes',
+            autoCoralL1: i % 3,
+            autoCoralL2: i % 2,
+            autoCoralL3: 0,
+            autoCoralL4: 0,
+            autoAlgaeNetted: 0,
+            autoAlgaeProcessor: 0,
+            teleopCoralL1: 1,
+            teleopCoralL2: 0,
+            teleopCoralL3: 0,
+            teleopCoralL4: 0,
+            teleopAlgaeNetted: 0,
+            teleopAlgaeProcessor: 0,
+            playedDefense: i % 4 === 0 ? 'Yes' : 'No',
+            defenseZone: i % 4 === 0 ? 'Near Reef' : 'None',
+            park: 'No',
+            climb: 'No',
+            notes: 'Injected test match',
+            timestamp: now,
+            id: Date.now() + Math.random()
+        });
+    }
+    localStorage.setItem(MATCHES_KEY, JSON.stringify(existing));
+    showNotification(`${numMatches} test matches injected`, 'success');
+    return existing.length;
+};
 
 // Collector helpers
 let qrStream = null;
@@ -324,6 +511,8 @@ function submitMatch(event) {
         teleopCoralL4: parseInt(document.getElementById('teleopCoralL4').value || 0),
         teleopAlgaeNetted: parseInt(document.getElementById('teleopAlgaeNetted').value || 0),
         teleopAlgaeProcessor: parseInt(document.getElementById('teleopAlgaeProcessor').value || 0),
+        playedDefense: formData.get('playedDefense') || 'No',
+        defenseZone: (formData.get('defenseZone') || 'None'),
         park: formData.get('park') || 'No',
         climb: formData.get('climb') || 'Yes, Shallow',
         notes: formData.get('notes') || '',
@@ -336,6 +525,7 @@ function submitMatch(event) {
     showNotification(`Match ${matchData.matchNumber} saved successfully!`, 'success');
     form.reset();
     resetCounters();
+    handleDefenseToggle();
     setTimeout(() => navigateToPage('homePage'), 2000);
 }
 
@@ -397,6 +587,7 @@ function loadData() {
                 ${match.location ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Location:</strong> ${match.location}</div>` : ''}
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> Mobility=${match.mobility}, ${totalAutoCoral} Coral, ${match.autoAlgaeNetted || 0} Algae Netted</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> ${totalTeleopCoral} Coral, ${match.teleopAlgaeNetted || 0} Algae Netted</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Defense:</strong> ${match.playedDefense === 'Yes' ? `Yes (${match.defenseZone || 'Unknown'})` : 'No'}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Park=${match.park}, Climb=${match.climb}</div>
                 ${match.notes ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Notes:</strong> ${match.notes}</div>` : ''}
                 <div style="margin-top: 15px; font-size: 14px; color: #aaa;">Recorded: ${new Date(match.timestamp).toLocaleString()}</div>
@@ -408,7 +599,7 @@ function loadData() {
 
 function generateCSV() {
     const matches = getLocalMatches();
-    const headers = ['Match','Team','Alliance','Scout','Mobility','AutoCoralL1','AutoCoralL2','AutoCoralL3','AutoCoralL4','AutoAlgaeNetted','AutoAlgaeProcessor','TeleopCoralL1','TeleopCoralL2','TeleopCoralL3','TeleopCoralL4','TeleopAlgaeNetted','TeleopAlgaeProcessor','Park','Climb','Notes','Timestamp'];
+    const headers = ['Match','Team','Alliance','Scout','Mobility','AutoCoralL1','AutoCoralL2','AutoCoralL3','AutoCoralL4','AutoAlgaeNetted','AutoAlgaeProcessor','TeleopCoralL1','TeleopCoralL2','TeleopCoralL3','TeleopCoralL4','TeleopAlgaeNetted','TeleopAlgaeProcessor','PlayedDefense','DefenseZone','Park','Climb','Notes','Timestamp'];
     const rows = matches.map(m => {
         const safeNotes = (m.notes || '').replace(/"/g, '""');
         return [
@@ -429,6 +620,8 @@ function generateCSV() {
             m.teleopCoralL4,
             m.teleopAlgaeNetted,
             m.teleopAlgaeProcessor,
+            m.playedDefense,
+            m.defenseZone,
             m.park,
             m.climb,
             `"${safeNotes}"`,
@@ -440,8 +633,11 @@ function generateCSV() {
 
 async function generateQR(text, size = 300) {
     return new Promise((resolve, reject) => {
+        const chartApiUrl = `https://chart.googleapis.com/chart?cht=qr&chs=${size}x${size}&chl=${encodeURIComponent(text)}`;
         if (typeof QRCode === 'undefined') {
-            reject(new Error('QRCode library not loaded'));
+            console.warn('QRCode library not loaded - falling back to Google Chart API');
+            try { showNotification('QRCode library unavailable — using network fallback', 'warning'); } catch(e) {}
+            resolve(chartApiUrl);
             return;
         }
 
@@ -491,13 +687,19 @@ async function generateQR(text, size = 300) {
                     }
                 } catch (err) {
                     cleanup();
-                    reject(err);
+                    // Try network fallback
+                    console.warn('QR rendering error, falling back to Google Chart API', err);
+                    try { showNotification('Local QR rendering failed — using network fallback', 'warning'); } catch(e) {}
+                    resolve(`https://chart.googleapis.com/chart?cht=qr&chs=${size}x${size}&chl=${encodeURIComponent(text)}`);
                     return;
                 }
 
                 if (attempts >= maxAttempts) {
                     cleanup();
-                    reject(new Error('QR rendering timed out'));
+                    // Try network fallback when rendering times out
+                    console.warn('QR rendering timed out - using network fallback');
+                    try { showNotification('Local QR rendering timed out — using network fallback', 'warning'); } catch(e) {}
+                    resolve(`https://chart.googleapis.com/chart?cht=qr&chs=${size}x${size}&chl=${encodeURIComponent(text)}`);
                     return;
                 }
                 setTimeout(tryResolve, 100);
@@ -513,67 +715,125 @@ async function generateQR(text, size = 300) {
 
 function prefixForQR(csvText) { return `TEAM7712CSV\n${csvText}`; }
 
-function encodeMatchesForQR(matches) {
-    // Compact format: T7712| followed by pipe-delimited match data
-    // Format per match: matchNum|teamNum|alliance|scout|mobility|autoL1|autoL2|autoL3|autoL4|autoNetted|autoProc|teleopL1|teleopL2|teleopL3|teleopL4|teleopNetted|teleopProc|park|climb|notes
-    const encoded = matches.map(m => {
-        return [
-            m.matchNumber || 0,
-            m.teamNumber || 0,
-            (m.alliance || 'red')[0], // r or b
-            m.scoutName || '',
-            (m.mobility === 'Yes' ? 'Y' : 'N'),
-            m.autoCoralL1 || 0,
-            m.autoCoralL2 || 0,
-            m.autoCoralL3 || 0,
-            m.autoCoralL4 || 0,
-            m.autoAlgaeNetted || 0,
-            m.autoAlgaeProcessor || 0,
-            m.teleopCoralL1 || 0,
-            m.teleopCoralL2 || 0,
-            m.teleopCoralL3 || 0,
-            m.teleopCoralL4 || 0,
-            m.teleopAlgaeNetted || 0,
-            m.teleopAlgaeProcessor || 0,
-            (m.park === 'Yes' ? 'Y' : 'N'),
-            (m.climb || 'No')[0] === 'Y' ? (m.climb.includes('Deep') ? 'D' : 'S') : 'N',
-            (m.notes || '').replace(/\|/g, ';').substring(0, 100) // limit notes, replace pipes
-        ].join('|');
-    }).join('\n');
-    return 'T7712|' + encoded;
+function encodeMatchRecord(match) {
+    const note = (match.notes || '').replace(/\|/g, ';').replace(/\n/g, ' ').substring(0, 120);
+    return [
+        match.matchNumber || 0,
+        match.teamNumber || 0,
+        (match.alliance || 'red')[0],
+        match.scoutName || '',
+        (match.mobility === 'Yes' ? 'Y' : 'N'),
+        match.autoCoralL1 || 0,
+        match.autoCoralL2 || 0,
+        match.autoCoralL3 || 0,
+        match.autoCoralL4 || 0,
+        match.autoAlgaeNetted || 0,
+        match.autoAlgaeProcessor || 0,
+        match.teleopCoralL1 || 0,
+        match.teleopCoralL2 || 0,
+        match.teleopCoralL3 || 0,
+        match.teleopCoralL4 || 0,
+        match.teleopAlgaeNetted || 0,
+        match.teleopAlgaeProcessor || 0,
+        (match.playedDefense === 'Yes' ? 'Y' : 'N'),
+        DEFENSE_ZONE_CODES[match.defenseZone] || DEFENSE_ZONE_CODES['None'],
+        (match.park === 'Yes' ? 'Y' : 'N'),
+        (match.climb || 'No').startsWith('Yes') ? (match.climb.includes('Deep') ? 'D' : 'S') : 'N',
+        note
+    ].join('|');
+}
+
+function buildQRPayload(lines, chunkIndex, totalChunks) {
+    return `T7712|v2|${chunkIndex}|${totalChunks}|${lines.join('\n')}`;
+}
+
+function encodeMatchesForQRChunks(matches, maxChars = QR_MAX_PAYLOAD_CHARS) {
+    if (!matches.length) return [];
+    const lines = matches.map(encodeMatchRecord);
+    const chunks = [];
+    let current = [];
+
+    const pushCurrent = () => {
+        if (current.length) {
+            chunks.push(current);
+            current = [];
+        }
+    };
+
+    lines.forEach(line => {
+        current.push(line);
+        const tentative = buildQRPayload(current, chunks.length + 1, chunks.length + 1);
+        if (tentative.length > maxChars) {
+            current.pop();
+            if (!current.length) {
+                throw new Error('Single match exceeds QR payload limit');
+            }
+            pushCurrent();
+            current.push(line);
+        }
+    });
+    pushCurrent();
+
+    const total = chunks.length || 1;
+    return chunks.map((chunkLines, idx) => buildQRPayload(chunkLines, idx + 1, total));
 }
 
 function decodeMatchesFromQR(qrText) {
     if (!qrText.startsWith('T7712|')) return null;
-    const lines = qrText.substring(6).split('\n');
-    return lines.map(line => {
-        const parts = line.split('|');
-        if (parts.length < 19) return null;
-        return {
-            matchNumber: parseInt(parts[0]) || 0,
-            teamNumber: parseInt(parts[1]) || 0,
-            alliance: parts[2] === 'r' ? 'red' : 'blue',
-            scoutName: parts[3] || '',
-            mobility: parts[4] === 'Y' ? 'Yes' : 'No',
-            autoCoralL1: parseInt(parts[5]) || 0,
-            autoCoralL2: parseInt(parts[6]) || 0,
-            autoCoralL3: parseInt(parts[7]) || 0,
-            autoCoralL4: parseInt(parts[8]) || 0,
-            autoAlgaeNetted: parseInt(parts[9]) || 0,
-            autoAlgaeProcessor: parseInt(parts[10]) || 0,
-            teleopCoralL1: parseInt(parts[11]) || 0,
-            teleopCoralL2: parseInt(parts[12]) || 0,
-            teleopCoralL3: parseInt(parts[13]) || 0,
-            teleopCoralL4: parseInt(parts[14]) || 0,
-            teleopAlgaeNetted: parseInt(parts[15]) || 0,
-            teleopAlgaeProcessor: parseInt(parts[16]) || 0,
-            park: parts[17] === 'Y' ? 'Yes' : 'No',
-            climb: parts[18] === 'D' ? 'Yes, Deep' : (parts[18] === 'S' ? 'Yes, Shallow' : 'No'),
-            notes: parts[19] || '',
-            timestamp: new Date().toISOString(),
-            id: Date.now() + Math.random()
-        };
-    }).filter(m => m !== null);
+    const payload = qrText.substring(6);
+
+    const decodeLines = (encodedString) => encodedString.split('\n').filter(line => line.trim().length > 0).map(decodeMatchLine).filter(Boolean);
+
+    if (payload.startsWith('v2|')) {
+        const parts = payload.split('|');
+        if (parts.length < 4) return null;
+        const encodedBody = parts.slice(3).join('|');
+        return decodeLines(encodedBody);
+    }
+
+    // Legacy format fallback (no chunk metadata, no defense fields)
+    return decodeLines(payload);
+}
+
+function decodeMatchLine(line) {
+    const parts = line.split('|');
+    if (parts.length < 19) return null;
+    const toNumber = (value) => {
+        const num = parseInt(value, 10);
+        return Number.isFinite(num) ? num : 0;
+    };
+
+    const hasDefense = parts.length >= 21;
+    const parkIndex = hasDefense ? 19 : 17;
+    const climbIndex = hasDefense ? 20 : 18;
+    const notesStart = hasDefense ? 21 : 19;
+
+    return {
+        matchNumber: toNumber(parts[0]),
+        teamNumber: toNumber(parts[1]),
+        alliance: parts[2] === 'r' ? 'red' : 'blue',
+        scoutName: parts[3] || '',
+        mobility: parts[4] === 'Y' ? 'Yes' : 'No',
+        autoCoralL1: toNumber(parts[5]),
+        autoCoralL2: toNumber(parts[6]),
+        autoCoralL3: toNumber(parts[7]),
+        autoCoralL4: toNumber(parts[8]),
+        autoAlgaeNetted: toNumber(parts[9]),
+        autoAlgaeProcessor: toNumber(parts[10]),
+        teleopCoralL1: toNumber(parts[11]),
+        teleopCoralL2: toNumber(parts[12]),
+        teleopCoralL3: toNumber(parts[13]),
+        teleopCoralL4: toNumber(parts[14]),
+        teleopAlgaeNetted: toNumber(parts[15]),
+        teleopAlgaeProcessor: toNumber(parts[16]),
+        playedDefense: hasDefense ? (parts[17] === 'Y' ? 'Yes' : 'No') : 'No',
+        defenseZone: hasDefense ? (DEFENSE_ZONE_LABELS[parts[18]] || 'None') : 'None',
+        park: parts[parkIndex] === 'Y' ? 'Yes' : 'No',
+        climb: parts[climbIndex] === 'D' ? 'Yes, Deep' : (parts[climbIndex] === 'S' ? 'Yes, Shallow' : 'No'),
+        notes: parts.slice(notesStart).join('|') || '',
+        timestamp: new Date().toISOString(),
+        id: Date.now() + Math.random()
+    };
 }
 
 function buildImportUrl(csvText) {
@@ -673,6 +933,15 @@ async function openShareModal() {
         if (qrContainer && titleEl) {
             titleEl.textContent = 'QR Generation Failed';
             qrContainer.innerHTML = `<p style="color: #ff9800; padding: 20px;">Too much data for QR code.<br>Use Copy Data or Copy Import Link instead.</p>`;
+            // Offer to create offline multi-chunk QR codes automatically when data is too large
+            const buttonsEl = modal.querySelector('.share-buttons');
+            if (buttonsEl) {
+                const offlineBtn = document.createElement('button');
+                offlineBtn.className = 'share-btn qr';
+                offlineBtn.textContent = 'Create Offline QR Codes';
+                offlineBtn.onclick = () => { showQRForOffline(); };
+                buttonsEl.insertBefore(offlineBtn, buttonsEl.querySelector('.share-btn.danger'));
+            }
         }
         showNotification('QR generation failed - use Copy buttons instead', 'warning');
     }
@@ -685,6 +954,8 @@ function parseCSVData(csvText) {
     const required = ['Match','Team','Alliance','Scout','Mobility','AutoCoralL1','AutoCoralL2','AutoCoralL3','AutoCoralL4','AutoAlgaeNetted','AutoAlgaeProcessor','TeleopCoralL1','TeleopCoralL2','TeleopCoralL3','TeleopCoralL4','TeleopAlgaeNetted','TeleopAlgaeProcessor','Park','Climb'];
     required.forEach(header => { if (!headers.includes(header)) { throw new Error(`Missing required column: ${header}`); } });
     const index = {}; headers.forEach((header, idx) => { index[header] = idx; });
+    const hasDefense = headers.includes('PlayedDefense');
+    const hasDefenseZone = headers.includes('DefenseZone');
     return lines.slice(1).map((line, lineNumber) => {
         const cells = splitCSVLine(line);
         if (cells.length < headers.length) { throw new Error(`Row ${lineNumber + 2} is malformed or missing values`); }
@@ -711,6 +982,8 @@ function parseCSVData(csvText) {
             teleopCoralL4: toNumber(getValue('TeleopCoralL4')),
             teleopAlgaeNetted: toNumber(getValue('TeleopAlgaeNetted')),
             teleopAlgaeProcessor: toNumber(getValue('TeleopAlgaeProcessor')),
+            playedDefense: hasDefense ? toYesNo(getValue('PlayedDefense')) : 'No',
+            defenseZone: hasDefenseZone ? (getValue('DefenseZone') || 'None') : 'None',
             park: toYesNo(getValue('Park')),
             climb: getValue('Climb') || 'Yes, Shallow',
             notes: notes,
@@ -771,27 +1044,45 @@ function showQRModal(type) { closeModal(); setTimeout(() => openShareModal(), 10
 
 async function showQRForOffline() {
     const matches = getLocalMatches();
-    const compactData = encodeMatchesForQR(matches);
-    
+    if (matches.length === 0) {
+        showNotification('No data to share yet', 'warning');
+        return;
+    }
+
+    let qrChunks;
+    try {
+        qrChunks = encodeMatchesForQRChunks(matches, QR_MAX_PAYLOAD_CHARS);
+    } catch (error) {
+        showNotification(`QR prep failed: ${error.message}`, 'error');
+        return;
+    }
+
     closeModal();
-    
-    setTimeout(async () => {
+
+    setTimeout(() => {
         isModalOpen = true;
+        currentQRChunks = qrChunks;
+        currentQRChunkIndex = 0;
+        currentQRImages = new Array(qrChunks.length).fill(null);
+
         const modal = document.createElement('div');
         modal.className = 'share-modal';
         modal.innerHTML = `
             <div class="share-content">
                 <h2 style="color: #DAA520; font-size: 28px;">Offline QR Code</h2>
-                <p style="font-size: 18px;"><strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong> (${compactData.length} characters)</p>
+                <p style="font-size: 18px;"><strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong> ready for offline sharing</p>
                 <div class="qr-container">
-                    <h3 style="color: #DAA520; font-size: 22px;">Generating QR Code...</h3>
-                    <div id="qrcode" style="min-height: 300px; display: flex; align-items: center; justify-content: center;">
-                        <div style="color: #DAA520; font-size: 18px;">⏳ Please wait...</div>
+                    <h3 style="color: #DAA520; font-size: 22px;">Preparing QR Code…</h3>
+                    <div id="qrcode" style="min-height: 320px; display: flex; align-items: center; justify-content: center;">
+                        <div style="color: #DAA520; font-size: 18px;">⏳ Rendering…</div>
                     </div>
-                    <p id="qrInstructions" style="margin-top: 20px; color: #ccc; font-size: 14px;"></p>
+                    <p id="qrPager" style="margin-top: 12px; color: #ccc; font-size: 14px;">QR 1 of ${qrChunks.length}</p>
+                    <p id="qrInstructions" style="margin-top: 12px; color: #ccc; font-size: 14px;"></p>
                 </div>
                 <div class="share-buttons">
-                    <button class="share-btn download" onclick="downloadQR()" disabled>Save QR Code</button>
+                    <button id="qrPrevBtn" class="share-btn" onclick="changeQRChunk(-1)" disabled>◀ Previous QR</button>
+                    <button id="qrNextBtn" class="share-btn" onclick="changeQRChunk(1)" ${qrChunks.length > 1 ? '' : 'disabled'}>Next QR ▶</button>
+                    <button class="share-btn download" onclick="downloadQR()" disabled>Save QR Image</button>
                     <button class="share-btn close" onclick="closeModal()">Close</button>
                 </div>
             </div>
@@ -799,48 +1090,83 @@ async function showQRForOffline() {
         document.body.appendChild(modal);
         window.currentModal = modal;
         modal.onclick = (e) => { if (e.target === modal) closeModal(); };
-        
-        try {
-            console.log('Generating QR for', compactData.length, 'characters');
-            // Generate QR with compact encoded data - use larger size for more capacity
-            const qrUrl = await generateQR(compactData, 500);
-            window.currentQR = qrUrl;
-            
-            const qrContainer = modal.querySelector('#qrcode');
-            const titleEl = modal.querySelector('.qr-container h3');
-            const instructionsEl = modal.querySelector('#qrInstructions');
-            
-            if (qrContainer && titleEl) {
-                titleEl.textContent = 'Scan to Import Data (Offline)';
-                qrContainer.innerHTML = `<img src="${qrUrl}" alt="QR Code" style="max-width: 100%; max-height: 500px; border-radius: 12px;">`;
-                instructionsEl.textContent = 'Scan this QR code with another device using the "Collect (QR)" → "Scan QR From Image" button. No internet needed!';
-                const downloadBtn = modal.querySelector('.share-btn.download');
-                if (downloadBtn) downloadBtn.disabled = false;
-            }
-            console.log('QR generated successfully');
-        } catch (error) {
-            console.error('QR generation error:', error);
-            const qrContainer = modal.querySelector('#qrcode');
-            const titleEl = modal.querySelector('.qr-container h3');
-            const instructionsEl = modal.querySelector('#qrInstructions');
-            
-            if (qrContainer && titleEl) {
-                const qrStatus = typeof QRCode !== 'undefined' ? 'Library loaded' : 'Library NOT loaded';
-                titleEl.textContent = 'Cannot Generate QR Code';
-                qrContainer.innerHTML = `<p style="color: #ff9800; padding: 20px; text-align: center;">
-                    <strong>Status:</strong> ${error.message}<br>
-                    <strong>Library:</strong> ${qrStatus}<br>
-                    <strong>Data size:</strong> ${compactData.length} chars (limit: 2,900)<br><br>
-                    <strong>Offline Sharing Options:</strong><br>
-                    ✓ Download CSV and transfer via USB/SD card<br>
-                    ✓ Use "Copy CSV" and paste into another device<br>
-                    ✓ Use "Native Share" to send via Bluetooth/AirDrop
-                </p>`;
-                instructionsEl.textContent = '';
-            }
-            showNotification('Data too large for QR - use Download CSV or Copy CSV', 'warning');
+
+        renderOfflineQRChunk();
+    }, 80);
+}
+
+function changeQRChunk(direction) {
+    if (!currentQRChunks.length) return;
+    const nextIndex = currentQRChunkIndex + direction;
+    if (nextIndex < 0 || nextIndex >= currentQRChunks.length) return;
+    currentQRChunkIndex = nextIndex;
+    renderOfflineQRChunk();
+}
+
+async function renderOfflineQRChunk() {
+    const modal = window.currentModal;
+    if (!modal || !currentQRChunks.length) return;
+
+    const qrContainer = modal.querySelector('#qrcode');
+    const titleEl = modal.querySelector('.qr-container h3');
+    const instructionsEl = modal.querySelector('#qrInstructions');
+    const pagerEl = modal.querySelector('#qrPager');
+    const prevBtn = modal.querySelector('#qrPrevBtn');
+    const nextBtn = modal.querySelector('#qrNextBtn');
+    const downloadBtn = modal.querySelector('.share-btn.download');
+
+    if (!qrContainer || !titleEl || !pagerEl || !downloadBtn) return;
+
+    pagerEl.textContent = `QR ${currentQRChunkIndex + 1} of ${currentQRChunks.length}`;
+    if (prevBtn) prevBtn.disabled = currentQRChunkIndex === 0;
+    if (nextBtn) nextBtn.disabled = currentQRChunkIndex === currentQRChunks.length - 1;
+    downloadBtn.disabled = true;
+    titleEl.textContent = 'Rendering QR Code…';
+    qrContainer.innerHTML = '<div style="color:#DAA520; font-size:18px;">⏳ Rendering…</div>';
+    instructionsEl.textContent = '';
+
+    try {
+        if (!currentQRImages[currentQRChunkIndex]) {
+            const dataUrl = await generateQR(currentQRChunks[currentQRChunkIndex], 500);
+            currentQRImages[currentQRChunkIndex] = dataUrl;
         }
-    }, 100);
+        const qrUrl = currentQRImages[currentQRChunkIndex];
+        window.currentQR = qrUrl;
+        // Create image element and handle load/error to detect network fallback failures
+        qrContainer.innerHTML = '';
+        const img = new Image();
+        img.alt = 'QR Code';
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '520px';
+        img.style.borderRadius = '12px';
+        img.onload = () => {
+            qrContainer.appendChild(img);
+            titleEl.textContent = 'Scan to Import Data (Offline)';
+        };
+        img.onerror = (err) => {
+            console.warn('QR image failed to load', err, qrUrl);
+            qrContainer.innerHTML = `<p style="color:#ff9800; padding:20px; text-align:center;">Could not load QR image.<br>Try "Download QR Image" or use Copy CSV/Import Link instead.<br><a href="${qrUrl}" target="_blank" rel="noopener">Open QR URL</a></p>`;
+            titleEl.textContent = 'QR Image Failed to Load';
+        };
+        img.src = qrUrl;
+        titleEl.textContent = 'Scan to Import Data (Offline)';
+        instructionsEl.textContent = currentQRChunks.length > 1
+            ? 'Scan each QR code in order (1 → ' + currentQRChunks.length + '). After scanning, choose “Add Data”.'
+            : 'Scan this QR with “Collect (QR)” → “Scan QR From Image” on another device.';
+        downloadBtn.disabled = false;
+    } catch (error) {
+        console.error('QR generation error:', error);
+        titleEl.textContent = 'QR Generation Failed';
+        const libraryStatus = typeof QRCode !== 'undefined' ? 'loaded' : 'not loaded';
+        qrContainer.innerHTML = `<p style="color:#ff9800; padding:20px; text-align:center;">
+            Could not render QR chunk ${currentQRChunkIndex + 1}.<br>
+            <strong>Error:</strong> ${error.message}<br>
+            <strong>QRCode library:</strong> ${libraryStatus}<br><br>
+            Please use Copy CSV, Download CSV, or Native Share instead.
+        </p>`;
+        instructionsEl.textContent = '';
+        downloadBtn.disabled = true;
+    }
 }
 
 function copyCSV() {
@@ -866,9 +1192,24 @@ function downloadCSV() {
 }
 
 function downloadQR() {
+    const hasChunks = Array.isArray(currentQRImages) && currentQRImages.length > 0;
+    const qrUrl = hasChunks ? currentQRImages[currentQRChunkIndex] : window.currentQR;
+    if (!qrUrl) {
+        showNotification('QR not ready yet', 'warning');
+        return;
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const totalChunks = hasChunks ? currentQRChunks.length : 1;
+    const chunkIndex = hasChunks ? currentQRChunkIndex + 1 : 1;
+    const chunkSuffix = totalChunks > 1 ? `_part${String(chunkIndex).padStart(2, '0')}of${String(totalChunks).padStart(2, '0')}` : '';
+
     const a = document.createElement('a');
-    a.href = window.currentQR; a.download = `team7712_qr_${new Date().toISOString().split('T')[0]}.png`; a.click();
-    showNotification('QR Code saved!', 'success');
+    a.href = qrUrl;
+    a.download = `team7712_qr_${today}${chunkSuffix}.png`;
+    a.click();
+
+    showNotification('QR code image saved!', 'success');
 }
 
 function copyImportLink() {
@@ -896,6 +1237,9 @@ function closeModal() {
         window.currentCSV = null;
         window.currentImportUrl = null;
         window.currentQR = null;
+        currentQRChunks = [];
+        currentQRImages = [];
+        currentQRChunkIndex = 0;
         isModalOpen = false;
         history.replaceState({page: currentPage, modal: null}, '', getPageHash(currentPage));
     }

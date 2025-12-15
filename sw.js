@@ -1,5 +1,5 @@
 // Service Worker for Team 7712 Scouting App
-const CACHE_NAME = 'team-7712-scouting-v1.0.24';
+const CACHE_NAME = 'team-7712-scouting-v1.0.28';
 const urlsToCache = [
     './',
     '/index.html',
@@ -10,7 +10,6 @@ const urlsToCache = [
     '/icons/icon-512.png',
     '/team7712_logo_reefscape.png',
     '/team7712_logo_reefscape.png?v=20251205',
-    '/vendor/jsqr.js',
     '/vendor/qrcode.min.js',
 ];
 
