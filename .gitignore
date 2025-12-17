@@ -3,3 +3,6 @@
 
 # Local-only docs (keep private; do not commit)
 local-docs/
+
+.vercel
+.env*.local

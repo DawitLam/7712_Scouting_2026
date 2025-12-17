@@ -1,3 +1,5 @@
 {
-  "name": "7712-Scouting"
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
