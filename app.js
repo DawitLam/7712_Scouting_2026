@@ -30,12 +30,6 @@ window.addEventListener('DOMContentLoaded', function () {
     } catch (e) {
         // best-effort cleanup
     }
-
-    const defenseSelect = document.getElementById('playedDefense');
-    if (defenseSelect) {
-        defenseSelect.addEventListener('change', handleDefenseToggle);
-        handleDefenseToggle();
-    }
 });
 
 // Core app logic
@@ -43,23 +37,11 @@ const MATCHES_KEY = 'team7712_matches';
 let navigationHistory = ['homePage'];
 let currentPage = 'homePage';
 let isModalOpen = false;
-let defensePollInterval = null;
 let modalHistory = [];
 let currentQRChunks = [];
 let currentQRChunkIndex = 0;
 let currentQRImages = [];
 const QR_MAX_PAYLOAD_CHARS = 2800;
-const DEFENSE_ZONE_CODES = {
-    'None': 'N',
-    'Near Reef': 'R',
-    'Midfield': 'M',
-    'Loading Zone': 'L',
-    'Barge': 'B'
-};
-const DEFENSE_ZONE_LABELS = Object.keys(DEFENSE_ZONE_CODES).reduce((acc, key) => {
-    acc[DEFENSE_ZONE_CODES[key]] = key;
-    return acc;
-}, {});
 
 window.addEventListener('load', function() {
     history.replaceState({page: 'homePage', modal: null}, '', '#home');
@@ -120,43 +102,6 @@ function showPage(pageId, addToHistory = true) {
     if (pageId === 'homePage') document.body.classList.add('home-active'); else document.body.classList.remove('home-active');
     if (pageId === 'dataPage') loadData();
     if (pageId === 'collectorPage') initCollector();
-    if (pageId === 'scoutPage') {
-        const defenseSelect = document.getElementById('playedDefense');
-        if (defenseSelect && !defenseSelect.hasAttribute('data-listener-attached')) {
-            defenseSelect.addEventListener('change', handleDefenseToggle);
-            defenseSelect.setAttribute('data-listener-attached', 'true');
-            handleDefenseToggle();
-        }
-
-        // Start a short-lived poll to catch any UI frameworks or styling layers that
-        // might not trigger native change events. This will stop when user leaves.
-        let lastVal = defenseSelect ? defenseSelect.value : null;
-        if (!defensePollInterval) {
-            defensePollInterval = setInterval(() => {
-                const el = document.getElementById('playedDefense');
-                if (!el) return;
-                if (el.value !== lastVal) {
-                    lastVal = el.value;
-                    handleDefenseToggle();
-                    console.debug('defensePoll detected change', lastVal);
-                }
-            }, 250);
-        }
-    } else {
-        // Clear polling when leaving the scout page
-        if (defensePollInterval) { clearInterval(defensePollInterval); defensePollInterval = null; }
-    }
-}
-
-function handleDefenseToggle() {
-    const defenseSelect = document.getElementById('playedDefense');
-    const zoneSelect = document.getElementById('defenseZone');
-    if (!defenseSelect || !zoneSelect) return;
-    const isDefense = defenseSelect.value === 'Yes';
-    zoneSelect.disabled = !isDefense;
-    if (!isDefense) {
-        zoneSelect.value = 'None';
-    }
 }
 
 // Temporary debug helper to programmatically test whether the defense UI reacts correctly.
@@ -172,22 +117,11 @@ window.testQRChunking = function (numMatches = 50) {
         alliance: i % 2 === 0 ? 'red' : 'blue',
         scoutName: `Test${i}`,
         mobility: 'Yes',
-        autoCoralL1: i % 3,
-        autoCoralL2: i % 2,
-        autoCoralL3: 0,
-        autoCoralL4: 0,
-        autoAlgaeNetted: 0,
-        autoAlgaeProcessor: 0,
-        teleopCoralL1: 1,
-        teleopCoralL2: 0,
-        teleopCoralL3: 0,
-        teleopCoralL4: 0,
-        teleopAlgaeNetted: 0,
-        teleopAlgaeProcessor: 0,
+        autoFuel: i % 3,
+        autoTower: i % 2 === 0 ? 'Level 1' : 'None',
+        teleopFuel: i % 5,
+        teleopTower: i % 3 === 0 ? 'Level 2' : 'None',
         playedDefense: i % 4 === 0 ? 'Yes' : 'No',
-        defenseZone: i % 4 === 0 ? 'Near Reef' : 'None',
-        park: 'No',
-        climb: 'No',
         notes: 'Auto-generated for QR chunk test',
         timestamp: now,
         id: Date.now() + i
@@ -499,22 +433,11 @@ function submitMatch(event) {
         alliance: formData.get('alliance'),
         scoutName: formData.get('scoutName'),
         mobility: formData.get('mobility') || 'No',
-        autoCoralL1: parseInt(document.getElementById('autoCoralL1').value || 0),
-        autoCoralL2: parseInt(document.getElementById('autoCoralL2').value || 0),
-        autoCoralL3: parseInt(document.getElementById('autoCoralL3').value || 0),
-        autoCoralL4: parseInt(document.getElementById('autoCoralL4').value || 0),
-        autoAlgaeNetted: parseInt(document.getElementById('autoAlgaeNetted').value || 0),
-        autoAlgaeProcessor: parseInt(document.getElementById('autoAlgaeProcessor').value || 0),
-        teleopCoralL1: parseInt(document.getElementById('teleopCoralL1').value || 0),
-        teleopCoralL2: parseInt(document.getElementById('teleopCoralL2').value || 0),
-        teleopCoralL3: parseInt(document.getElementById('teleopCoralL3').value || 0),
-        teleopCoralL4: parseInt(document.getElementById('teleopCoralL4').value || 0),
-        teleopAlgaeNetted: parseInt(document.getElementById('teleopAlgaeNetted').value || 0),
-        teleopAlgaeProcessor: parseInt(document.getElementById('teleopAlgaeProcessor').value || 0),
+        autoFuel: parseInt(document.getElementById('autoFuel').value || 0),
+        autoTower: formData.get('autoTower') || 'None',
+        teleopFuel: parseInt(document.getElementById('teleopFuel').value || 0),
+        teleopTower: formData.get('teleopTower') || 'None',
         playedDefense: formData.get('playedDefense') || 'No',
-        defenseZone: (formData.get('defenseZone') || 'None'),
-        park: formData.get('park') || 'No',
-        climb: formData.get('climb') || 'Yes, Shallow',
         notes: formData.get('notes') || '',
         timestamp: new Date().toISOString(),
         id: Date.now()
@@ -525,7 +448,6 @@ function submitMatch(event) {
     showNotification(`Match ${matchData.matchNumber} saved successfully!`, 'success');
     form.reset();
     resetCounters();
-    handleDefenseToggle();
     setTimeout(() => navigateToPage('homePage'), 2000);
 }
 
@@ -546,12 +468,7 @@ function decCounter(name) {
 }
 
 function resetCounters() {
-    const names = [
-        'autoCoralL1','autoCoralL2','autoCoralL3','autoCoralL4',
-        'autoAlgaeNetted','autoAlgaeProcessor',
-        'teleopCoralL1','teleopCoralL2','teleopCoralL3','teleopCoralL4',
-        'teleopAlgaeNetted','teleopAlgaeProcessor'
-    ];
+    const names = ['autoFuel', 'teleopFuel'];
     names.forEach(name => {
         const input = document.getElementById(name);
         const valueEl = document.getElementById(name + 'Value');
@@ -578,17 +495,21 @@ function loadData() {
         <h3 style="color: #DAA520; font-size: 28px;">${matches.length} Match${matches.length !== 1 ? 'es' : ''} Recorded</h3>
     </div>`;
     matches.sort((a, b) => (a.matchNumber || 0) - (b.matchNumber || 0)).forEach(match => {
-        const totalAutoCoral = (match.autoCoralL1 || 0) + (match.autoCoralL2 || 0) + (match.autoCoralL3 || 0) + (match.autoCoralL4 || 0);
-        const totalTeleopCoral = (match.teleopCoralL1 || 0) + (match.teleopCoralL2 || 0) + (match.teleopCoralL3 || 0) + (match.teleopCoralL4 || 0);
+        // Support both new (REBUILT) and old (REEFSCAPE) data formats
+        const autoFuel = match.autoFuel || 0;
+        const teleopFuel = match.teleopFuel || 0;
+        const autoTower = match.autoTower || 'None';
+        const teleopTower = match.teleopTower || 'None';
+        
         html += `
             <div class="match-card">
                 <div class="match-header">Match ${match.matchNumber} - Team ${match.teamNumber}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Alliance:</strong> ${match.alliance} | <strong>Scout:</strong> ${match.scoutName}</div>
                 ${match.location ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Location:</strong> ${match.location}</div>` : ''}
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> Mobility=${match.mobility}, ${totalAutoCoral} Coral, ${match.autoAlgaeNetted || 0} Algae Netted</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> ${totalTeleopCoral} Coral, ${match.teleopAlgaeNetted || 0} Algae Netted</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Defense:</strong> ${match.playedDefense === 'Yes' ? `Yes (${match.defenseZone || 'Unknown'})` : 'No'}</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Park=${match.park}, Climb=${match.climb}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> Mobility=${match.mobility}, ${autoFuel} FUEL, Tower=${autoTower}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> ${teleopFuel} FUEL</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Defense:</strong> ${match.playedDefense === 'Yes' ? 'Yes' : 'No'}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Tower=${teleopTower}</div>
                 ${match.notes ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Notes:</strong> ${match.notes}</div>` : ''}
                 <div style="margin-top: 15px; font-size: 14px; color: #aaa;">Recorded: ${new Date(match.timestamp).toLocaleString()}</div>
             </div>
@@ -599,7 +520,7 @@ function loadData() {
 
 function generateCSV() {
     const matches = getLocalMatches();
-    const headers = ['Match','Team','Alliance','Scout','Mobility','AutoCoralL1','AutoCoralL2','AutoCoralL3','AutoCoralL4','AutoAlgaeNetted','AutoAlgaeProcessor','TeleopCoralL1','TeleopCoralL2','TeleopCoralL3','TeleopCoralL4','TeleopAlgaeNetted','TeleopAlgaeProcessor','PlayedDefense','DefenseZone','Park','Climb','Notes','Timestamp'];
+    const headers = ['Match','Team','Alliance','Scout','Location','Mobility','AutoFuel','AutoTower','TeleopFuel','TeleopTower','PlayedDefense','Notes','Timestamp'];
     const rows = matches.map(m => {
         const safeNotes = (m.notes || '').replace(/"/g, '""');
         return [
@@ -607,23 +528,13 @@ function generateCSV() {
             m.teamNumber,
             m.alliance,
             m.scoutName,
+            m.location || '',
             m.mobility,
-            m.autoCoralL1,
-            m.autoCoralL2,
-            m.autoCoralL3,
-            m.autoCoralL4,
-            m.autoAlgaeNetted,
-            m.autoAlgaeProcessor,
-            m.teleopCoralL1,
-            m.teleopCoralL2,
-            m.teleopCoralL3,
-            m.teleopCoralL4,
-            m.teleopAlgaeNetted,
-            m.teleopAlgaeProcessor,
+            m.autoFuel || 0,
+            m.autoTower || 'None',
+            m.teleopFuel || 0,
+            m.teleopTower || 'None',
             m.playedDefense,
-            m.defenseZone,
-            m.park,
-            m.climb,
             `"${safeNotes}"`,
             m.timestamp
         ].join(',');

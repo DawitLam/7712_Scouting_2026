@@ -87,82 +87,55 @@
 
                 <h3>Autonomous</h3>
                 <div class="form-group">
-                    <label for="mobility">Mobility</label>
+                    <label for="mobility">Mobility (Left starting zone)</label>
                     <select id="mobility" name="mobility">
                         <option value="Yes">Yes</option>
                         <option value="No">No</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Coral Scored (Auto)</label>
+                    <label>FUEL Scored (Auto)</label>
                     <div class="counter-row">
-                        <div class="counter" data-name="autoCoralL1"><span class="counter-label">L1</span><button type="button" class="btn mini" onclick="decCounter('autoCoralL1')">-</button><span id="autoCoralL1Value">0</span><button type="button" class="btn mini" onclick="incCounter('autoCoralL1')">+</button><input type="hidden" name="autoCoralL1" id="autoCoralL1" value="0"></div>
-                        <div class="counter" data-name="autoCoralL2"><span class="counter-label">L2</span><button type="button" class="btn mini" onclick="decCounter('autoCoralL2')">-</button><span id="autoCoralL2Value">0</span><button type="button" class="btn mini" onclick="incCounter('autoCoralL2')">+</button><input type="hidden" name="autoCoralL2" id="autoCoralL2" value="0"></div>
-                        <div class="counter" data-name="autoCoralL3"><span class="counter-label">L3</span><button type="button" class="btn mini" onclick="decCounter('autoCoralL3')">-</button><span id="autoCoralL3Value">0</span><button type="button" class="btn mini" onclick="incCounter('autoCoralL3')">+</button><input type="hidden" name="autoCoralL3" id="autoCoralL3" value="0"></div>
-                        <div class="counter" data-name="autoCoralL4"><span class="counter-label">L4</span><button type="button" class="btn mini" onclick="decCounter('autoCoralL4')">-</button><span id="autoCoralL4Value">0</span><button type="button" class="btn mini" onclick="incCounter('autoCoralL4')">+</button><input type="hidden" name="autoCoralL4" id="autoCoralL4" value="0"></div>
+                        <div class="counter" data-name="autoFuel"><span class="counter-label">FUEL in HUB</span><button type="button" class="btn mini" onclick="decCounter('autoFuel')">-</button><span id="autoFuelValue">0</span><button type="button" class="btn mini" onclick="incCounter('autoFuel')">+</button><input type="hidden" name="autoFuel" id="autoFuel" value="0"></div>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Algae (Auto)</label>
-                    <div class="counter-row">
-                        <div class="counter" data-name="autoAlgaeNetted"><span class="counter-label">Netted</span><button type="button" class="btn mini" onclick="decCounter('autoAlgaeNetted')">-</button><span id="autoAlgaeNettedValue">0</span><button type="button" class="btn mini" onclick="incCounter('autoAlgaeNetted')">+</button><input type="hidden" name="autoAlgaeNetted" id="autoAlgaeNetted" value="0"></div>
-                        <div class="counter" data-name="autoAlgaeProcessor"><span class="counter-label">Processor</span><button type="button" class="btn mini" onclick="decCounter('autoAlgaeProcessor')">-</button><span id="autoAlgaeProcessorValue">0</span><button type="button" class="btn mini" onclick="incCounter('autoAlgaeProcessor')">+</button><input type="hidden" name="autoAlgaeProcessor" id="autoAlgaeProcessor" value="0"></div>
-                    </div>
+                    <label for="autoTower">TOWER Climb (Auto)</label>
+                    <select id="autoTower" name="autoTower">
+                        <option value="None" selected>No Climb</option>
+                        <option value="Level 1">Level 1 (15 pts)</option>
+                    </select>
                 </div>
 
                 <h3>Teleop</h3>
                 <div class="form-group">
-                    <label>Coral Scored (Teleop)</label>
+                    <label>FUEL Scored (Teleop)</label>
                     <div class="counter-row">
-                        <div class="counter" data-name="teleopCoralL1"><span class="counter-label">L1</span><button type="button" class="btn mini" onclick="decCounter('teleopCoralL1')">-</button><span id="teleopCoralL1Value">0</span><button type="button" class="btn mini" onclick="incCounter('teleopCoralL1')">+</button><input type="hidden" name="teleopCoralL1" id="teleopCoralL1" value="0"></div>
-                        <div class="counter" data-name="teleopCoralL2"><span class="counter-label">L2</span><button type="button" class="btn mini" onclick="decCounter('teleopCoralL2')">-</button><span id="teleopCoralL2Value">0</span><button type="button" class="btn mini" onclick="incCounter('teleopCoralL2')">+</button><input type="hidden" name="teleopCoralL2" id="teleopCoralL2" value="0"></div>
-                        <div class="counter" data-name="teleopCoralL3"><span class="counter-label">L3</span><button type="button" class="btn mini" onclick="decCounter('teleopCoralL3')">-</button><span id="teleopCoralL3Value">0</span><button type="button" class="btn mini" onclick="incCounter('teleopCoralL3')">+</button><input type="hidden" name="teleopCoralL3" id="teleopCoralL3" value="0"></div>
-                        <div class="counter" data-name="teleopCoralL4"><span class="counter-label">L4</span><button type="button" class="btn mini" onclick="decCounter('teleopCoralL4')">-</button><span id="teleopCoralL4Value">0</span><button type="button" class="btn mini" onclick="incCounter('teleopCoralL4')">+</button><input type="hidden" name="teleopCoralL4" id="teleopCoralL4" value="0"></div>
+                        <div class="counter" data-name="teleopFuel"><span class="counter-label">FUEL in HUB</span><button type="button" class="btn mini" onclick="decCounter('teleopFuel')">-</button><span id="teleopFuelValue">0</span><button type="button" class="btn mini" onclick="incCounter('teleopFuel')">+</button><input type="hidden" name="teleopFuel" id="teleopFuel" value="0"></div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>Algae (Teleop)</label>
-                    <div class="counter-row">
-                        <div class="counter" data-name="teleopAlgaeNetted"><span class="counter-label">Netted</span><button type="button" class="btn mini" onclick="decCounter('teleopAlgaeNetted')">-</button><span id="teleopAlgaeNettedValue">0</span><button type="button" class="btn mini" onclick="incCounter('teleopAlgaeNetted')">+</button><input type="hidden" name="teleopAlgaeNetted" id="teleopAlgaeNetted" value="0"></div>
-                        <div class="counter" data-name="teleopAlgaeProcessor"><span class="counter-label">Processor</span><button type="button" class="btn mini" onclick="decCounter('teleopAlgaeProcessor')">-</button><span id="teleopAlgaeProcessorValue">0</span><button type="button" class="btn mini" onclick="incCounter('teleopAlgaeProcessor')">+</button><input type="hidden" name="teleopAlgaeProcessor" id="teleopAlgaeProcessor" value="0"></div>
-                    </div>
+                    <small style="color: #666;">Note: Only FUEL in active HUB scores (1 pt each)</small>
                 </div>
 
                 <h3>Defense</h3>
                 <div class="form-group">
                     <label for="playedDefense">Played Defense?</label>
-                    <select id="playedDefense" name="playedDefense" onchange="handleDefenseToggle()">
+                    <select id="playedDefense" name="playedDefense">
                         <option value="No" selected>No</option>
                         <option value="Yes">Yes</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="defenseZone">Defense Focus Area</label>
-                    <select id="defenseZone" name="defenseZone" disabled>
-                        <option value="None" selected>Did not play defense</option>
-                        <option value="Near Reef">Near Reef</option>
-                        <option value="Midfield">Midfield Traffic</option>
-                        <option value="Loading Zone">Opponent Loading Zone</option>
-                        <option value="Barge">Opponent Barge</option>
                     </select>
                 </div>
                 <!-- debug button removed -->
 
                 <h3>Endgame</h3>
                 <div class="form-group">
-                    <label for="park">Park</label>
-                    <select id="park" name="park">
-                        <option value="No" selected>No</option>
-                        <option value="Yes">Yes</option>
+                    <label for="teleopTower">TOWER Climb (Teleop/Endgame)</label>
+                    <select id="teleopTower" name="teleopTower">
+                        <option value="None" selected>No Climb</option>
+                        <option value="Level 1">Level 1 - Off ground (10 pts)</option>
+                        <option value="Level 2">Level 2 - BUMPERS above LOW RUNG (20 pts)</option>
+                        <option value="Level 3">Level 3 - BUMPERS above MID RUNG (30 pts)</option>
                     </select>
-                </div>
-                <div class="form-group">
-                    <label for="climb">Climb</label>
-                    <select id="climb" name="climb">
-                        <option value="No">No</option>
-                        <option value="Yes, Shallow" selected>Yes, Shallow Climb</option>
-                        <option value="Yes, Deep">Yes, Deep Climb</option>
-                    </select>
+                    <small style="color: #666;">Level 1: Robot off ground | Level 2: BUMPERS above 27" | Level 3: BUMPERS above 45"</small>
                 </div>
                 <div class="form-group">
                     <label for="notes">Notes</label>
