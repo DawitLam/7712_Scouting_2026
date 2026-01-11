@@ -95,10 +95,14 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>FUEL Scored (Auto)</label>
-                    <div class="counter-row">
-                        <div class="counter" data-name="autoFuel"><span class="counter-label">FUEL in HUB</span><button type="button" class="btn mini" onclick="decCounter('autoFuel')">-</button><input type="number" id="autoFuelValue" class="counter-input" value="0" min="0" oninput="updateCounterFromInput('autoFuel')"><button type="button" class="btn mini" onclick="incCounter('autoFuel')">+</button><input type="hidden" name="autoFuel" id="autoFuel" value="0"></div>
-                    </div>
+                    <label>FUEL Scoring (Auto)</label>
+                    <select id="autoFuelCategory" name="autoFuelCategory">
+                        <option value="Not observed" selected>Not observed yet</option>
+                        <option value="High">High - Scores many FUEL consistently</option>
+                        <option value="Medium">Medium - Scores some FUEL</option>
+                        <option value="Low">Low - Scores few FUEL</option>
+                        <option value="None">None - Does not score FUEL</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="autoTower">TOWER Climb (Auto)</label>
@@ -110,11 +114,14 @@
 
                 <h3>Teleop</h3>
                 <div class="form-group">
-                    <label>FUEL Scored (Teleop)</label>
-                    <div class="counter-row">
-                        <div class="counter" data-name="teleopFuel"><span class="counter-label">FUEL in HUB</span><button type="button" class="btn mini" onclick="decCounter('teleopFuel')">-</button><input type="number" id="teleopFuelValue" class="counter-input" value="0" min="0" oninput="updateCounterFromInput('teleopFuel')"><button type="button" class="btn mini" onclick="incCounter('teleopFuel')">+</button><input type="hidden" name="teleopFuel" id="teleopFuel" value="0"></div>
-                    </div>
-                    <small style="color: #666;">Note: Only FUEL in active HUB scores (1 pt each)</small>
+                    <label>FUEL Scoring (Teleop)</label>
+                    <select id="teleopFuelCategory" name="teleopFuelCategory">
+                        <option value="Not observed" selected>Not observed yet</option>
+                        <option value="High">High - Scores many FUEL consistently</option>
+                        <option value="Medium">Medium - Scores some FUEL</option>
+                        <option value="Low">Low - Scores few FUEL</option>
+                        <option value="None">None - Does not score FUEL</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="navigation">Field Navigation</label>
@@ -136,6 +143,15 @@
                         <option value="Yes">Yes</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label for="defenseEffectiveness">Defense Effectiveness (if played)</label>
+                    <select id="defenseEffectiveness" name="defenseEffectiveness">
+                        <option value="Not applicable" selected>Not applicable / Did not play defense</option>
+                        <option value="High">High - Significantly slowed opponents</option>
+                        <option value="Medium">Medium - Some impact on opponents</option>
+                        <option value="Low">Low - Minimal impact</option>
+                    </select>
+                </div>
                 <!-- debug button removed -->
 
                 <h3>Endgame</h3>
@@ -148,6 +164,33 @@
                         <option value="Level 3">Level 3 - BUMPERS above MID RUNG (30 pts)</option>
                     </select>
                     <small style="color: #666;">Level 1: Robot off ground | Level 2: BUMPERS above 27" | Level 3: BUMPERS above 45"</small>
+                </div>
+
+                <h3>Match Performance</h3>
+                <div class="form-group">
+                    <label for="foulsObserved">Fouls/Penalties Observed</label>
+                    <select id="foulsObserved" name="foulsObserved">
+                        <option value="None" selected>None observed</option>
+                        <option value="Minor">Minor (1-2 fouls)</option>
+                        <option value="Major">Major (3+ fouls or tech foul)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="robotStatus">Robot Status During Match</label>
+                    <select id="robotStatus" name="robotStatus">
+                        <option value="Worked full match" selected>Worked full match</option>
+                        <option value="Partial breakdown">Partial breakdown (recovered)</option>
+                        <option value="Disabled">Disabled (did not recover)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="consistencyRating">Overall Consistency/Reliability</label>
+                    <select id="consistencyRating" name="consistencyRating">
+                        <option value="Reliable" selected>Reliable - Performed as expected</option>
+                        <option value="Average">Average - Some variability</option>
+                        <option value="Unreliable">Unreliable - Inconsistent performance</option>
+                    </select>
+                    <small style="color: #666;">Compare this match to their typical performance</small>
                 </div>
                 <div class="form-group">
                     <label for="notes">Notes</label>

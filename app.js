@@ -112,17 +112,22 @@ function showPage(pageId, addToHistory = true) {
 // window.testQRChunking(50) -> returns number of chunks and logs example payload sizes
 window.testQRChunking = function (numMatches = 50) {
     const now = new Date().toISOString();
+    const categories = ['High', 'Medium', 'Low', 'None'];
     const makeMatch = (i) => ({
         matchNumber: i + 1,
         teamNumber: 7712 + (i % 6),
         alliance: i % 2 === 0 ? 'red' : 'blue',
         scoutName: `Test${i}`,
         mobility: 'Yes',
-        autoFuel: i % 3,
+        autoFuelCategory: categories[i % 4],
         autoTower: i % 2 === 0 ? 'Level 1' : 'None',
-        teleopFuel: i % 5,
+        teleopFuelCategory: categories[(i + 1) % 4],
         teleopTower: i % 3 === 0 ? 'Level 2' : 'None',
         playedDefense: i % 4 === 0 ? 'Yes' : 'No',
+        defenseEffectiveness: i % 4 === 0 ? ['High', 'Medium', 'Low'][i % 3] : 'Not applicable',
+        foulsObserved: ['None', 'Minor', 'Major'][i % 3],
+        robotStatus: ['Worked full match', 'Partial breakdown', 'Disabled'][i % 3],
+        consistencyRating: ['Reliable', 'Average', 'Unreliable'][i % 3],
         notes: 'Auto-generated for QR chunk test',
         timestamp: now,
         id: Date.now() + i
@@ -434,12 +439,16 @@ function submitMatch(event) {
         alliance: formData.get('alliance'),
         scoutName: formData.get('scoutName'),
         mobility: formData.get('mobility') || 'No',
-        autoFuel: parseInt(document.getElementById('autoFuel').value || 0),
+        autoFuelCategory: formData.get('autoFuelCategory') || 'Not observed',
         autoTower: formData.get('autoTower') || 'None',
-        teleopFuel: parseInt(document.getElementById('teleopFuel').value || 0),
+        teleopFuelCategory: formData.get('teleopFuelCategory') || 'Not observed',
         navigation: formData.get('navigation') || 'Not observed',
         teleopTower: formData.get('teleopTower') || 'None',
         playedDefense: formData.get('playedDefense') || 'No',
+        defenseEffectiveness: formData.get('defenseEffectiveness') || 'Not applicable',
+        foulsObserved: formData.get('foulsObserved') || 'None',
+        robotStatus: formData.get('robotStatus') || 'Worked full match',
+        consistencyRating: formData.get('consistencyRating') || 'Reliable',
         notes: formData.get('notes') || '',
         timestamp: new Date().toISOString(),
         id: Date.now()
@@ -449,46 +458,7 @@ function submitMatch(event) {
     localStorage.setItem(MATCHES_KEY, JSON.stringify(matches));
     showNotification(`Match ${matchData.matchNumber} saved successfully!`, 'success');
     form.reset();
-    resetCounters();
     setTimeout(() => navigateToPage('homePage'), 2000);
-}
-
-function incCounter(name) {
-    const input = document.getElementById(name);
-    const valueEl = document.getElementById(name + 'Value');
-    const next = Math.max(0, (parseInt(input.value || '0') + 1));
-    input.value = String(next);
-    if (valueEl) valueEl.value = String(next);
-}
-
-function decCounter(name) {
-    const input = document.getElementById(name);
-    const valueEl = document.getElementById(name + 'Value');
-    const next = Math.max(0, (parseInt(input.value || '0') - 1));
-    input.value = String(next);
-    if (valueEl) valueEl.value = String(next);
-}
-
-function resetCounters() {
-    const names = ['autoFuel', 'teleopFuel'];
-    names.forEach(name => {
-        const input = document.getElementById(name);
-        const valueEl = document.getElementById(name + 'Value');
-        if (input) input.value = '0';
-        if (valueEl) valueEl.value = '0';
-    });
-}
-
-function updateCounterFromInput(name) {
-    const valueEl = document.getElementById(name + 'Value');
-    const input = document.getElementById(name);
-    if (!valueEl || !input) return;
-    
-    let val = parseInt(valueEl.value || '0');
-    if (isNaN(val) || val < 0) val = 0;
-    
-    valueEl.value = String(val);
-    input.value = String(val);
 }
 
 function getLocalPitScouts() {
@@ -596,8 +566,8 @@ function loadData() {
             const multiScout = observations.length > 1;
             observations.forEach((match, idx) => {
         // Support both new (REBUILT) and old (REEFSCAPE) data formats
-                const autoFuel = match.autoFuel || 0;
-                const teleopFuel = match.teleopFuel || 0;
+                const autoFuelCategory = match.autoFuelCategory || match.autoFuel !== undefined ? `${match.autoFuel} FUEL` : 'Not observed';
+                const teleopFuelCategory = match.teleopFuelCategory || match.teleopFuel !== undefined ? `${match.teleopFuel} FUEL` : 'Not observed';
                 const autoTower = match.autoTower || 'None';
                 const teleopTower = match.teleopTower || 'None';
                 const navigation = match.navigation || 'Not observed';
@@ -609,10 +579,11 @@ function loadData() {
                         <div class="match-header">Match ${match.matchNumber} - Team ${match.teamNumber}${scoutIndicator}</div>
                         <div style="margin: 12px 0; font-size: 16px;"><strong>Alliance:</strong> ${match.alliance} | <strong>Scout:</strong> ${match.scoutName}</div>
                 ${match.location ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Location:</strong> ${match.location}</div>` : ''}
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> Mobility=${match.mobility}, ${autoFuel} FUEL, Tower=${autoTower}</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> ${teleopFuel} FUEL | Nav: ${navigation}</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Defense:</strong> ${match.playedDefense === 'Yes' ? 'Yes' : 'No'}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> Mobility=${match.mobility}, FUEL: ${autoFuelCategory}, Tower=${autoTower}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> FUEL: ${teleopFuelCategory} | Nav: ${navigation}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Defense:</strong> ${match.playedDefense === 'Yes' ? 'Yes' : 'No'}${match.defenseEffectiveness && match.defenseEffectiveness !== 'Not applicable' ? ` (${match.defenseEffectiveness})` : ''}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Tower=${teleopTower}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Performance:</strong> Fouls=${match.foulsObserved || 'None'}, Status=${match.robotStatus || 'Worked full match'}, Consistency=${match.consistencyRating || 'Reliable'}</div>
                 ${match.notes ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Notes:</strong> ${match.notes}</div>` : ''}
                     <div style="margin-top: 15px; font-size: 14px; color: #aaa;">Recorded: ${new Date(match.timestamp).toLocaleString()}</div>
                 </div>
@@ -632,7 +603,7 @@ function generateCSV() {
     
     // Match Data CSV
     if (matches.length > 0) {
-        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','Mobility','AutoFuel','AutoTower','TeleopFuel','Navigation','TeleopTower','PlayedDefense','Notes','Timestamp'];
+        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','Mobility','AutoFuelCategory','AutoTower','TeleopFuelCategory','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','Notes','Timestamp'];
         const matchRows = matches.map(m => {
             const safeNotes = (m.notes || '').replace(/"/g, '""');
             return [
@@ -643,12 +614,16 @@ function generateCSV() {
                 m.scoutName,
                 m.location || '',
                 m.mobility,
-                m.autoFuel || 0,
+                m.autoFuelCategory || (m.autoFuel !== undefined ? `${m.autoFuel} FUEL` : 'Not observed'),
                 m.autoTower || 'None',
-                m.teleopFuel || 0,
+                m.teleopFuelCategory || (m.teleopFuel !== undefined ? `${m.teleopFuel} FUEL` : 'Not observed'),
                 m.navigation || 'Not observed',
                 m.teleopTower || 'None',
                 m.playedDefense,
+                m.defenseEffectiveness || 'Not applicable',
+                m.foulsObserved || 'None',
+                m.robotStatus || 'Worked full match',
+                m.consistencyRating || 'Reliable',
                 `"${safeNotes}"`,
                 m.timestamp
             ].join(',');
