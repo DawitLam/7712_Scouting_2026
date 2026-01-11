@@ -118,7 +118,6 @@ window.testQRChunking = function (numMatches = 50) {
         teamNumber: 7712 + (i % 6),
         alliance: i % 2 === 0 ? 'red' : 'blue',
         scoutName: `Test${i}`,
-        mobility: 'Yes',
         autoFuelCategory: categories[i % 4],
         autoTower: i % 2 === 0 ? 'Level 1' : 'None',
         teleopFuelCategory: categories[(i + 1) % 4],
@@ -438,7 +437,6 @@ function submitMatch(event) {
         location: (formData.get('location') || '').trim(),
         alliance: formData.get('alliance'),
         scoutName: formData.get('scoutName'),
-        mobility: formData.get('mobility') || 'No',
         autoFuelCategory: formData.get('autoFuelCategory') || 'Not observed',
         autoTower: formData.get('autoTower') || 'None',
         teleopFuelCategory: formData.get('teleopFuelCategory') || 'Not observed',
@@ -579,7 +577,7 @@ function loadData() {
                         <div class="match-header">Match ${match.matchNumber} - Team ${match.teamNumber}${scoutIndicator}</div>
                         <div style="margin: 12px 0; font-size: 16px;"><strong>Alliance:</strong> ${match.alliance} | <strong>Scout:</strong> ${match.scoutName}</div>
                 ${match.location ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Location:</strong> ${match.location}</div>` : ''}
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> Mobility=${match.mobility}, FUEL: ${autoFuelCategory}, Tower=${autoTower}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> FUEL: ${autoFuelCategory}, Tower=${autoTower}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> FUEL: ${teleopFuelCategory} | Nav: ${navigation}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Defense:</strong> ${match.playedDefense === 'Yes' ? 'Yes' : 'No'}${match.defenseEffectiveness && match.defenseEffectiveness !== 'Not applicable' ? ` (${match.defenseEffectiveness})` : ''}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Tower=${teleopTower}</div>
@@ -603,7 +601,7 @@ function generateCSV() {
     
     // Match Data CSV
     if (matches.length > 0) {
-        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','Mobility','AutoFuelCategory','AutoTower','TeleopFuelCategory','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','Notes','Timestamp'];
+        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','AutoFuelCategory','AutoTower','TeleopFuelCategory','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','Notes','Timestamp'];
         const matchRows = matches.map(m => {
             const safeNotes = (m.notes || '').replace(/"/g, '""');
             return [
@@ -613,7 +611,6 @@ function generateCSV() {
                 m.alliance,
                 m.scoutName,
                 m.location || '',
-                m.mobility,
                 m.autoFuelCategory || (m.autoFuel !== undefined ? `${m.autoFuel} FUEL` : 'Not observed'),
                 m.autoTower || 'None',
                 m.teleopFuelCategory || (m.teleopFuel !== undefined ? `${m.teleopFuel} FUEL` : 'Not observed'),
