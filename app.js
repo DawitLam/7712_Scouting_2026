@@ -34,6 +34,7 @@ window.addEventListener('DOMContentLoaded', function () {
 
 // Core app logic
 const MATCHES_KEY = 'team7712_matches';
+const PIT_SCOUTS_KEY = 'team7712_pitscouts';
 let navigationHistory = ['homePage'];
 let currentPage = 'homePage';
 let isModalOpen = false;
@@ -62,7 +63,7 @@ window.addEventListener('load', function() {
 });
 
 function getPageHash(pageId) {
-    const pageNames = { 'homePage': '#home', 'scoutPage': '#scout', 'dataPage': '#data' };
+    const pageNames = { 'homePage': '#home', 'scoutPage': '#scout', 'pitScoutPage': '#pitscout', 'dataPage': '#data' };
     return pageNames[pageId] || '#home';
 }
 
@@ -436,6 +437,7 @@ function submitMatch(event) {
         autoFuel: parseInt(document.getElementById('autoFuel').value || 0),
         autoTower: formData.get('autoTower') || 'None',
         teleopFuel: parseInt(document.getElementById('teleopFuel').value || 0),
+        navigation: formData.get('navigation') || 'Not observed',
         teleopTower: formData.get('teleopTower') || 'None',
         playedDefense: formData.get('playedDefense') || 'No',
         notes: formData.get('notes') || '',
@@ -456,7 +458,7 @@ function incCounter(name) {
     const valueEl = document.getElementById(name + 'Value');
     const next = Math.max(0, (parseInt(input.value || '0') + 1));
     input.value = String(next);
-    if (valueEl) valueEl.textContent = String(next);
+    if (valueEl) valueEl.value = String(next);
 }
 
 function decCounter(name) {
@@ -464,7 +466,7 @@ function decCounter(name) {
     const valueEl = document.getElementById(name + 'Value');
     const next = Math.max(0, (parseInt(input.value || '0') - 1));
     input.value = String(next);
-    if (valueEl) valueEl.textContent = String(next);
+    if (valueEl) valueEl.value = String(next);
 }
 
 function resetCounters() {
@@ -473,33 +475,113 @@ function resetCounters() {
         const input = document.getElementById(name);
         const valueEl = document.getElementById(name + 'Value');
         if (input) input.value = '0';
-        if (valueEl) valueEl.textContent = '0';
+        if (valueEl) valueEl.value = '0';
     });
+}
+
+function updateCounterFromInput(name) {
+    const valueEl = document.getElementById(name + 'Value');
+    const input = document.getElementById(name);
+    if (!valueEl || !input) return;
+    
+    let val = parseInt(valueEl.value || '0');
+    if (isNaN(val) || val < 0) val = 0;
+    
+    valueEl.value = String(val);
+    input.value = String(val);
+}
+
+function getLocalPitScouts() {
+    try { return JSON.parse(localStorage.getItem(PIT_SCOUTS_KEY) || '[]'); } catch { return []; }
+}
+
+function submitPitScout(event) {
+    event.preventDefault();
+    const form = document.getElementById('pitScoutForm');
+    const formData = new FormData(form);
+    const pitData = {
+        teamNumber: parseInt(formData.get('pitTeamNumber')),
+        scoutName: formData.get('pitScoutName'),
+        robotDimension: formData.get('robotDimension') || '',
+        robotWeight: formData.get('robotWeight') || '',
+        drivetrainType: formData.get('drivetrainType') || 'Not specified',
+        navigationCapability: formData.get('navigationCapability') || 'Not specified',
+        autoScore: formData.get('autoScore') || '',
+        fuelCapacity: formData.get('fuelCapacity') || '',
+        climbCapability: formData.get('climbCapability') || 'Not specified',
+        driverExperience: formData.get('driverExperience') || 'Not specified',
+        pitNotes: formData.get('pitNotes') || '',
+        timestamp: new Date().toISOString(),
+        id: Date.now()
+    };
+    const pitScouts = getLocalPitScouts();
+    // Check if team already scouted, update instead of duplicate
+    const existingIndex = pitScouts.findIndex(p => p.teamNumber === pitData.teamNumber);
+    if (existingIndex >= 0) {
+        pitScouts[existingIndex] = pitData;
+        showNotification(`Team ${pitData.teamNumber} pit data updated!`, 'success');
+    } else {
+        pitScouts.push(pitData);
+        showNotification(`Team ${pitData.teamNumber} pit data saved!`, 'success');
+    }
+    localStorage.setItem(PIT_SCOUTS_KEY, JSON.stringify(pitScouts));
+    form.reset();
+    setTimeout(() => navigateToPage('homePage'), 2000);
 }
 
 function loadData() {
     const matches = getLocalMatches();
+    const pitScouts = getLocalPitScouts();
     const display = document.getElementById('dataDisplay');
-    if (matches.length === 0) {
+    
+    if (matches.length === 0 && pitScouts.length === 0) {
         display.innerHTML = `
             <div style="text-align: center; padding: 50px; color: #ccc;">
                 <div style="font-size: 64px; margin-bottom: 25px;"></div>
-                <h3 style="font-size: 24px; margin-bottom: 15px; color: #DAA520;">No matches recorded yet</h3>
-                <p style="font-size: 18px; margin-bottom: 25px;">Start by scouting your first match!</p>
-                <button class="btn success" onclick="navigateToPage('scoutPage')" style="width: auto; padding: 20px 40px;">Scout First Match</button>
+                <h3 style="font-size: 24px; margin-bottom: 15px; color: #DAA520;">No data recorded yet</h3>
+                <p style="font-size: 18px; margin-bottom: 25px;">Start scouting!</p>
+                <button class="btn success" onclick="navigateToPage('scoutPage')" style="width: auto; padding: 20px 40px; margin: 10px;">Scout Match</button>
+                <button class="btn success" onclick="navigateToPage('pitScoutPage')" style="width: auto; padding: 20px 40px; margin: 10px;">Pit Scout</button>
             </div>
         `;
         return;
     }
-    let html = `<div style="text-align: center; margin-bottom: 25px;">
-        <h3 style="color: #DAA520; font-size: 28px;">${matches.length} Match${matches.length !== 1 ? 'es' : ''} Recorded</h3>
-    </div>`;
-    matches.sort((a, b) => (a.matchNumber || 0) - (b.matchNumber || 0)).forEach(match => {
+    
+    let html = '';
+    
+    // Pit Scout Data Section
+    if (pitScouts.length > 0) {
+        html += `<div style="margin-bottom: 40px;">
+            <h3 style="color: #DAA520; font-size: 28px; text-align: center; margin-bottom: 20px;">📋 ${pitScouts.length} Pit Scout${pitScouts.length !== 1 ? 's' : ''}</h3>`;
+        pitScouts.sort((a, b) => (a.teamNumber || 0) - (b.teamNumber || 0)).forEach(pit => {
+            html += `
+                <div class="match-card">
+                    <div class="match-header">Team ${pit.teamNumber} - Pit Scout</div>
+                    <div style="margin: 12px 0; font-size: 16px;"><strong>Scout:</strong> ${pit.scoutName}</div>
+                    <div style="margin: 12px 0; font-size: 16px;"><strong>Dimensions:</strong> ${pit.robotDimension || 'Not specified'} ${pit.robotWeight ? `| ${pit.robotWeight} lbs` : ''}</div>
+                    <div style="margin: 12px 0; font-size: 16px;"><strong>Drivetrain:</strong> ${pit.drivetrainType} | <strong>Navigation:</strong> ${pit.navigationCapability}</div>
+                    <div style="margin: 12px 0; font-size: 16px;"><strong>FUEL Capacity:</strong> ${pit.fuelCapacity || 'Unknown'} | <strong>Climb:</strong> ${pit.climbCapability}</div>
+                    ${pit.autoScore ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> ${pit.autoScore}</div>` : ''}
+                    <div style="margin: 12px 0; font-size: 16px;"><strong>Driver:</strong> ${pit.driverExperience}</div>
+                    ${pit.pitNotes ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Notes:</strong> ${pit.pitNotes}</div>` : ''}
+                    <div style="margin-top: 15px; font-size: 14px; color: #aaa;">Recorded: ${new Date(pit.timestamp).toLocaleString()}</div>
+                </div>
+            `;
+        });
+        html += `</div>`;
+    }
+    
+    // Match Data Section
+    if (matches.length > 0) {
+        html += `<div style="margin-bottom: 20px;">
+            <h3 style="color: #DAA520; font-size: 28px; text-align: center; margin-bottom: 20px;">🏆 ${matches.length} Match${matches.length !== 1 ? 'es' : ''}</h3>`;
+        matches.sort((a, b) => (a.matchNumber || 0) - (b.matchNumber || 0)).forEach(match => {
         // Support both new (REBUILT) and old (REEFSCAPE) data formats
         const autoFuel = match.autoFuel || 0;
         const teleopFuel = match.teleopFuel || 0;
         const autoTower = match.autoTower || 'None';
         const teleopTower = match.teleopTower || 'None';
+        const navigation = match.navigation || 'Not observed';
         
         html += `
             <div class="match-card">
@@ -507,7 +589,7 @@ function loadData() {
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Alliance:</strong> ${match.alliance} | <strong>Scout:</strong> ${match.scoutName}</div>
                 ${match.location ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Location:</strong> ${match.location}</div>` : ''}
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> Mobility=${match.mobility}, ${autoFuel} FUEL, Tower=${autoTower}</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> ${teleopFuel} FUEL</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> ${teleopFuel} FUEL | Nav: ${navigation}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Defense:</strong> ${match.playedDefense === 'Yes' ? 'Yes' : 'No'}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Tower=${teleopTower}</div>
                 ${match.notes ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Notes:</strong> ${match.notes}</div>` : ''}
@@ -515,31 +597,70 @@ function loadData() {
             </div>
         `;
     });
+        html += `</div>`;
+    }
     display.innerHTML = html;
 }
 
 function generateCSV() {
     const matches = getLocalMatches();
-    const headers = ['Match','Team','Alliance','Scout','Location','Mobility','AutoFuel','AutoTower','TeleopFuel','TeleopTower','PlayedDefense','Notes','Timestamp'];
-    const rows = matches.map(m => {
-        const safeNotes = (m.notes || '').replace(/"/g, '""');
-        return [
-            m.matchNumber,
-            m.teamNumber,
-            m.alliance,
-            m.scoutName,
-            m.location || '',
-            m.mobility,
-            m.autoFuel || 0,
-            m.autoTower || 'None',
-            m.teleopFuel || 0,
-            m.teleopTower || 'None',
-            m.playedDefense,
-            `"${safeNotes}"`,
-            m.timestamp
-        ].join(',');
-    });
-    return [headers.join(','), ...rows].join('\n');
+    const pitScouts = getLocalPitScouts();
+    
+    let csv = '';
+    
+    // Match Data CSV
+    if (matches.length > 0) {
+        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','Mobility','AutoFuel','AutoTower','TeleopFuel','Navigation','TeleopTower','PlayedDefense','Notes','Timestamp'];
+        const matchRows = matches.map(m => {
+            const safeNotes = (m.notes || '').replace(/"/g, '""');
+            return [
+                'Match',
+                m.matchNumber,
+                m.teamNumber,
+                m.alliance,
+                m.scoutName,
+                m.location || '',
+                m.mobility,
+                m.autoFuel || 0,
+                m.autoTower || 'None',
+                m.teleopFuel || 0,
+                m.navigation || 'Not observed',
+                m.teleopTower || 'None',
+                m.playedDefense,
+                `"${safeNotes}"`,
+                m.timestamp
+            ].join(',');
+        });
+        csv = [matchHeaders.join(','), ...matchRows].join('\n');
+    }
+    
+    // Pit Scout Data CSV
+    if (pitScouts.length > 0) {
+        const pitHeaders = ['Type','Team','Scout','Dimensions','Weight','Drivetrain','Navigation','AutoScore','FuelCapacity','ClimbCapability','DriverExperience','Notes','Timestamp'];
+        const pitRows = pitScouts.map(p => {
+            const safeAutoScore = (p.autoScore || '').replace(/"/g, '""');
+            const safePitNotes = (p.pitNotes || '').replace(/"/g, '""');
+            return [
+                'PitScout',
+                p.teamNumber,
+                p.scoutName,
+                p.robotDimension || '',
+                p.robotWeight || '',
+                p.drivetrainType,
+                p.navigationCapability,
+                `"${safeAutoScore}"`,
+                p.fuelCapacity || '',
+                p.climbCapability,
+                p.driverExperience,
+                `"${safePitNotes}"`,
+                p.timestamp
+            ].join(',');
+        });
+        if (csv) csv += '\n\n'; // Separate sections
+        csv += [pitHeaders.join(','), ...pitRows].join('\n');
+    }
+    
+    return csv;
 }
 
 async function generateQR(text, size = 300) {
@@ -754,6 +875,7 @@ function buildImportUrl(csvText) {
 
 function clearAllData() {
     localStorage.removeItem(MATCHES_KEY);
+    localStorage.removeItem(PIT_SCOUTS_KEY);
     showNotification('All scouting data has been cleared', 'success');
     closeModal();
     if (currentPage === 'dataPage') { loadData(); }
@@ -761,7 +883,8 @@ function clearAllData() {
 
 function openExportModal() {
     const matches = getLocalMatches();
-    if (matches.length === 0) { showNotification('No data to export yet', 'warning'); return; }
+    const pitScouts = getLocalPitScouts();
+    if (matches.length === 0 && pitScouts.length === 0) { showNotification('No data to export yet', 'warning'); return; }
     isModalOpen = true;
     const csvData = generateCSV();
     const modal = document.createElement('div');

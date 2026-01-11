@@ -43,6 +43,7 @@
             <div class="menu-container">
                 <div class="menu-grid">
                     <button class="menu-btn" onclick="navigateToPage('scoutPage')"><div class="menu-btn-text">Scout Match</div></button>
+                    <button class="menu-btn" onclick="navigateToPage('pitScoutPage')"><div class="menu-btn-text">Pit Scout</div></button>
                     <button class="menu-btn" onclick="navigateToPage('dataPage')"><div class="menu-btn-text">View Data</div></button>
                     <button class="menu-btn" onclick="openExportModal()"><div class="menu-btn-text">Export Data</div></button>
                     <button class="menu-btn" onclick="navigateToPage('collectorPage')"><div class="menu-btn-text">Collect (QR)</div></button>
@@ -96,7 +97,7 @@
                 <div class="form-group">
                     <label>FUEL Scored (Auto)</label>
                     <div class="counter-row">
-                        <div class="counter" data-name="autoFuel"><span class="counter-label">FUEL in HUB</span><button type="button" class="btn mini" onclick="decCounter('autoFuel')">-</button><span id="autoFuelValue">0</span><button type="button" class="btn mini" onclick="incCounter('autoFuel')">+</button><input type="hidden" name="autoFuel" id="autoFuel" value="0"></div>
+                        <div class="counter" data-name="autoFuel"><span class="counter-label">FUEL in HUB</span><button type="button" class="btn mini" onclick="decCounter('autoFuel')">-</button><input type="number" id="autoFuelValue" class="counter-input" value="0" min="0" oninput="updateCounterFromInput('autoFuel')"><button type="button" class="btn mini" onclick="incCounter('autoFuel')">+</button><input type="hidden" name="autoFuel" id="autoFuel" value="0"></div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -111,9 +112,20 @@
                 <div class="form-group">
                     <label>FUEL Scored (Teleop)</label>
                     <div class="counter-row">
-                        <div class="counter" data-name="teleopFuel"><span class="counter-label">FUEL in HUB</span><button type="button" class="btn mini" onclick="decCounter('teleopFuel')">-</button><span id="teleopFuelValue">0</span><button type="button" class="btn mini" onclick="incCounter('teleopFuel')">+</button><input type="hidden" name="teleopFuel" id="teleopFuel" value="0"></div>
+                        <div class="counter" data-name="teleopFuel"><span class="counter-label">FUEL in HUB</span><button type="button" class="btn mini" onclick="decCounter('teleopFuel')">-</button><input type="number" id="teleopFuelValue" class="counter-input" value="0" min="0" oninput="updateCounterFromInput('teleopFuel')"><button type="button" class="btn mini" onclick="incCounter('teleopFuel')">+</button><input type="hidden" name="teleopFuel" id="teleopFuel" value="0"></div>
                     </div>
                     <small style="color: #666;">Note: Only FUEL in active HUB scores (1 pt each)</small>
+                </div>
+                <div class="form-group">
+                    <label for="navigation">Field Navigation</label>
+                    <select id="navigation" name="navigation">
+                        <option value="Not observed" selected>Not observed yet</option>
+                        <option value="Goes over BUMPS">Goes over BUMPS</option>
+                        <option value="Goes through TRENCHES">Goes through TRENCHES</option>
+                        <option value="Both BUMPS and TRENCHES">Both (versatile drivetrain)</option>
+                        <option value="Avoids/struggles">Avoids obstacles / struggles</option>
+                    </select>
+                    <small style="color: #666;">Track drivetrain capabilities for strategy planning</small>
                 </div>
 
                 <h3>Defense</h3>
@@ -142,6 +154,89 @@
                     <textarea id="notes" name="notes" rows="4" placeholder="Observations, issues, strengths..."></textarea>
                 </div>
                 <button type="submit" class="btn success">Save Match</button>
+            </form>
+        </div>
+
+        <!-- Pit Scout Page -->
+        <div id="pitScoutPage" class="page">
+            <button class="back-btn" onclick="navigateBack()">Back</button>
+            <h2>Pit Scouting</h2>
+            <form id="pitScoutForm" onsubmit="submitPitScout(event)">
+                <div class="form-group">
+                    <label for="pitTeamNumber">Team Number</label>
+                    <input type="number" id="pitTeamNumber" name="pitTeamNumber" required>
+                </div>
+                <div class="form-group">
+                    <label for="pitScoutName">Scout Name</label>
+                    <input type="text" id="pitScoutName" name="pitScoutName" required>
+                </div>
+                
+                <h3>Robot Information</h3>
+                <div class="form-group">
+                    <label for="robotDimension">Robot Dimensions (L x W x H)</label>
+                    <input type="text" id="robotDimension" name="robotDimension" placeholder="e.g., 28 x 26 x 42 inches">
+                </div>
+                <div class="form-group">
+                    <label for="robotWeight">Robot Weight (lbs)</label>
+                    <input type="number" id="robotWeight" name="robotWeight" placeholder="e.g., 120">
+                </div>
+                <div class="form-group">
+                    <label for="drivetrainType">Drivetrain Type</label>
+                    <select id="drivetrainType" name="drivetrainType">
+                        <option value="Not specified">Not specified</option>
+                        <option value="Tank/West Coast">Tank/West Coast</option>
+                        <option value="Swerve">Swerve</option>
+                        <option value="Mecanum">Mecanum</option>
+                        <option value="H-Drive">H-Drive</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="navigationCapability">Navigation Capability</label>
+                    <select id="navigationCapability" name="navigationCapability">
+                        <option value="Not specified">Not specified</option>
+                        <option value="Goes over BUMPS">Goes over BUMPS</option>
+                        <option value="Goes through TRENCHES">Goes through TRENCHES</option>
+                        <option value="Both BUMPS and TRENCHES">Both BUMPS and TRENCHES</option>
+                    </select>
+                </div>
+
+                <h3>Game Performance</h3>
+                <div class="form-group">
+                    <label for="autoScore">Auto Score Capability</label>
+                    <textarea id="autoScore" name="autoScore" rows="3" placeholder="What can they do in auto? (e.g., score 3 FUEL, climb Level 1, leave starting zone)"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="fuelCapacity">Robot FUEL Capacity</label>
+                    <input type="number" id="fuelCapacity" name="fuelCapacity" placeholder="How many FUEL can they hold?">
+                </div>
+                <div class="form-group">
+                    <label for="climbCapability">TOWER Climb Capability</label>
+                    <select id="climbCapability" name="climbCapability">
+                        <option value="Not specified">Not specified</option>
+                        <option value="None">Cannot climb</option>
+                        <option value="Level 1">Level 1 (off ground)</option>
+                        <option value="Level 2">Level 2 (BUMPERS above LOW RUNG)</option>
+                        <option value="Level 3">Level 3 (BUMPERS above MID RUNG)</option>
+                    </select>
+                </div>
+
+                <h3>Team Information</h3>
+                <div class="form-group">
+                    <label for="driverExperience">Driver Experience</label>
+                    <select id="driverExperience" name="driverExperience">
+                        <option value="Not specified">Not specified</option>
+                        <option value="New driver">New driver (rookie)</option>
+                        <option value="1 year">1 year experience</option>
+                        <option value="2 years">2 years experience</option>
+                        <option value="3+ years">3+ years experience</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="pitNotes">Additional Notes</label>
+                    <textarea id="pitNotes" name="pitNotes" rows="4" placeholder="Design features, strengths, weaknesses, special capabilities..."></textarea>
+                </div>
+                <button type="submit" class="btn success">Save Pit Scout</button>
             </form>
         </div>
 
