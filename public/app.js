@@ -743,28 +743,23 @@ function prefixForQR(csvText) { return `TEAM7712CSV\n${csvText}`; }
 
 function encodeMatchRecord(match) {
     const note = (match.notes || '').replace(/\|/g, ';').replace(/\n/g, ' ').substring(0, 120);
+    // REBUILT 2026 format: simplified fields with category-based FUEL scoring
     return [
         match.matchNumber || 0,
         match.teamNumber || 0,
         (match.alliance || 'red')[0],
         match.scoutName || '',
-        (match.mobility === 'Yes' ? 'Y' : 'N'),
-        match.autoCoralL1 || 0,
-        match.autoCoralL2 || 0,
-        match.autoCoralL3 || 0,
-        match.autoCoralL4 || 0,
-        match.autoAlgaeNetted || 0,
-        match.autoAlgaeProcessor || 0,
-        match.teleopCoralL1 || 0,
-        match.teleopCoralL2 || 0,
-        match.teleopCoralL3 || 0,
-        match.teleopCoralL4 || 0,
-        match.teleopAlgaeNetted || 0,
-        match.teleopAlgaeProcessor || 0,
+        match.location || '',
+        match.autoFuelCategory || 'Not observed',
+        match.autoTower || 'None',
+        match.teleopFuelCategory || 'Not observed',
+        match.navigation || 'Not observed',
+        match.teleopTower || 'None',
         (match.playedDefense === 'Yes' ? 'Y' : 'N'),
-        DEFENSE_ZONE_CODES[match.defenseZone] || DEFENSE_ZONE_CODES['None'],
-        (match.park === 'Yes' ? 'Y' : 'N'),
-        (match.climb || 'No').startsWith('Yes') ? (match.climb.includes('Deep') ? 'D' : 'S') : 'N',
+        match.defenseEffectiveness || 'Not applicable',
+        match.foulsObserved || 'None',
+        match.robotStatus || 'Worked full match',
+        match.consistencyRating || 'Reliable',
         note
     ].join('|');
 }
@@ -823,40 +818,26 @@ function decodeMatchesFromQR(qrText) {
 
 function decodeMatchLine(line) {
     const parts = line.split('|');
-    if (parts.length < 19) return null;
-    const toNumber = (value) => {
-        const num = parseInt(value, 10);
-        return Number.isFinite(num) ? num : 0;
-    };
-
-    const hasDefense = parts.length >= 21;
-    const parkIndex = hasDefense ? 19 : 17;
-    const climbIndex = hasDefense ? 20 : 18;
-    const notesStart = hasDefense ? 21 : 19;
-
+    // REBUILT 2026 format: 16 fields (match, team, alliance, scout, location, autoFuel, autoTower, teleopFuel, nav, teleopTower, defense, defenseEff, fouls, status, consistency, notes)
+    if (parts.length < 15) return null; // At least enough fields for core data
+    
     return {
-        matchNumber: toNumber(parts[0]),
-        teamNumber: toNumber(parts[1]),
+        matchNumber: parseInt(parts[0], 10) || 0,
+        teamNumber: parseInt(parts[1], 10) || 0,
         alliance: parts[2] === 'r' ? 'red' : 'blue',
         scoutName: parts[3] || '',
-        mobility: parts[4] === 'Y' ? 'Yes' : 'No',
-        autoCoralL1: toNumber(parts[5]),
-        autoCoralL2: toNumber(parts[6]),
-        autoCoralL3: toNumber(parts[7]),
-        autoCoralL4: toNumber(parts[8]),
-        autoAlgaeNetted: toNumber(parts[9]),
-        autoAlgaeProcessor: toNumber(parts[10]),
-        teleopCoralL1: toNumber(parts[11]),
-        teleopCoralL2: toNumber(parts[12]),
-        teleopCoralL3: toNumber(parts[13]),
-        teleopCoralL4: toNumber(parts[14]),
-        teleopAlgaeNetted: toNumber(parts[15]),
-        teleopAlgaeProcessor: toNumber(parts[16]),
-        playedDefense: hasDefense ? (parts[17] === 'Y' ? 'Yes' : 'No') : 'No',
-        defenseZone: hasDefense ? (DEFENSE_ZONE_LABELS[parts[18]] || 'None') : 'None',
-        park: parts[parkIndex] === 'Y' ? 'Yes' : 'No',
-        climb: parts[climbIndex] === 'D' ? 'Yes, Deep' : (parts[climbIndex] === 'S' ? 'Yes, Shallow' : 'No'),
-        notes: parts.slice(notesStart).join('|') || '',
+        location: parts[4] || '',
+        autoFuelCategory: parts[5] || 'Not observed',
+        autoTower: parts[6] || 'None',
+        teleopFuelCategory: parts[7] || 'Not observed',
+        navigation: parts[8] || 'Not observed',
+        teleopTower: parts[9] || 'None',
+        playedDefense: parts[10] === 'Y' ? 'Yes' : 'No',
+        defenseEffectiveness: parts[11] || 'Not applicable',
+        foulsObserved: parts[12] || 'None',
+        robotStatus: parts[13] || 'Worked full match',
+        consistencyRating: parts[14] || 'Reliable',
+        notes: parts.slice(15).join('|') || '',
         timestamp: new Date().toISOString(),
         id: Date.now() + Math.random()
     };
