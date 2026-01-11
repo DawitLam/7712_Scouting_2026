@@ -342,7 +342,7 @@ function handleScannedContent(text) {
             const imported = decodeMatchesFromQR(text);
             if (imported && imported.length > 0) {
                 const result = mergeImportedMatches(imported);
-                showNotification(`Imported ${result.added} new, skipped ${result.skipped}. Total: ${result.total}`, 'success');
+                showNotification(`✅ Added ${result.added} observation${result.added !== 1 ? 's' : ''}${result.skipped > 0 ? `, skipped ${result.skipped} duplicate${result.skipped !== 1 ? 's' : ''}` : ''}. Total: ${result.total}`, 'success');
                 loadData();
                 stopQRScan();
                 if (currentPage === 'collectorPage') { setTimeout(() => navigateToPage('homePage'), 600); }
@@ -573,30 +573,52 @@ function loadData() {
     
     // Match Data Section
     if (matches.length > 0) {
-        html += `<div style="margin-bottom: 20px;">
-            <h3 style="color: #DAA520; font-size: 28px; text-align: center; margin-bottom: 20px;">🏆 ${matches.length} Match${matches.length !== 1 ? 'es' : ''}</h3>`;
-        matches.sort((a, b) => (a.matchNumber || 0) - (b.matchNumber || 0)).forEach(match => {
-        // Support both new (REBUILT) and old (REEFSCAPE) data formats
-        const autoFuel = match.autoFuel || 0;
-        const teleopFuel = match.teleopFuel || 0;
-        const autoTower = match.autoTower || 'None';
-        const teleopTower = match.teleopTower || 'None';
-        const navigation = match.navigation || 'Not observed';
+        // Group matches by match number + team number
+        const groupedMatches = {};
+        matches.forEach(match => {
+            const key = `${match.matchNumber}-${match.teamNumber}`;
+            if (!groupedMatches[key]) groupedMatches[key] = [];
+            groupedMatches[key].push(match);
+        });
         
-        html += `
-            <div class="match-card">
-                <div class="match-header">Match ${match.matchNumber} - Team ${match.teamNumber}</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Alliance:</strong> ${match.alliance} | <strong>Scout:</strong> ${match.scoutName}</div>
+        const uniqueCount = Object.keys(groupedMatches).length;
+        html += `<div style="margin-bottom: 20px;">
+            <h3 style="color: #DAA520; font-size: 28px; text-align: center; margin-bottom: 20px;">🏆 ${matches.length} Observation${matches.length !== 1 ? 's' : ''} (${uniqueCount} unique matches)</h3>`;
+        
+        Object.keys(groupedMatches)
+            .sort((a, b) => {
+                const [matchA] = a.split('-').map(Number);
+                const [matchB] = b.split('-').map(Number);
+                return matchA - matchB;
+            })
+            .forEach(key => {
+            const observations = groupedMatches[key];
+            const multiScout = observations.length > 1;
+            observations.forEach((match, idx) => {
+        // Support both new (REBUILT) and old (REEFSCAPE) data formats
+                const autoFuel = match.autoFuel || 0;
+                const teleopFuel = match.teleopFuel || 0;
+                const autoTower = match.autoTower || 'None';
+                const teleopTower = match.teleopTower || 'None';
+                const navigation = match.navigation || 'Not observed';
+                
+                const scoutIndicator = multiScout ? ` <span style="background: #ff9800; color: #000; padding: 2px 8px; border-radius: 8px; font-size: 14px; font-weight: 700;">👥 Scout ${idx + 1}/${observations.length}</span>` : '';
+                
+                html += `
+                    <div class="match-card">
+                        <div class="match-header">Match ${match.matchNumber} - Team ${match.teamNumber}${scoutIndicator}</div>
+                        <div style="margin: 12px 0; font-size: 16px;"><strong>Alliance:</strong> ${match.alliance} | <strong>Scout:</strong> ${match.scoutName}</div>
                 ${match.location ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Location:</strong> ${match.location}</div>` : ''}
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> Mobility=${match.mobility}, ${autoFuel} FUEL, Tower=${autoTower}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> ${teleopFuel} FUEL | Nav: ${navigation}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Defense:</strong> ${match.playedDefense === 'Yes' ? 'Yes' : 'No'}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Tower=${teleopTower}</div>
                 ${match.notes ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Notes:</strong> ${match.notes}</div>` : ''}
-                <div style="margin-top: 15px; font-size: 14px; color: #aaa;">Recorded: ${new Date(match.timestamp).toLocaleString()}</div>
-            </div>
-        `;
-    });
+                    <div style="margin-top: 15px; font-size: 14px; color: #aaa;">Recorded: ${new Date(match.timestamp).toLocaleString()}</div>
+                </div>
+            `;
+            });
+        });
         html += `</div>`;
     }
     display.innerHTML = html;
@@ -1038,10 +1060,11 @@ function splitCSVLine(line) {
 
 function mergeImportedMatches(importedMatches) {
     const currentMatches = getLocalMatches();
-    const existingKeys = new Set(currentMatches.map(match => `${match.matchNumber}-${match.teamNumber}-${(match.scoutName || '').toLowerCase()}`));
+    // Only skip if exact duplicate (same ID/timestamp) from same scout
+    const existingKeys = new Set(currentMatches.map(match => `${match.id}-${match.timestamp}`));
     let added = 0; let skipped = 0;
     importedMatches.forEach(match => {
-        const key = `${match.matchNumber}-${match.teamNumber}-${(match.scoutName || '').toLowerCase()}`;
+        const key = `${match.id}-${match.timestamp}`;
         if (existingKeys.has(key)) { skipped += 1; return; }
         currentMatches.push(match); existingKeys.add(key); added += 1;
     });
