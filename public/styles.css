@@ -217,6 +217,28 @@ input:focus, select:focus, textarea:focus {
     color: #DAA520;
     font-weight: 600;
 }
+.counter-input {
+    background: rgba(218, 165, 32, 0.15);
+    border: 2px solid rgba(218, 165, 32, 0.3);
+    border-radius: 8px;
+    color: #DAA520;
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+    width: 60px;
+    padding: 8px 6px;
+    transition: all 0.2s ease;
+}
+.counter-input:focus {
+    outline: none;
+    border-color: #DAA520;
+    background: rgba(218, 165, 32, 0.25);
+    box-shadow: 0 0 8px rgba(218, 165, 32, 0.4);
+}
+.counter-input::-webkit-inner-spin-button,
+.counter-input::-webkit-outer-spin-button {
+    opacity: 1;
+}
 .btn.mini {
     padding: 6px 10px;
     border-radius: 8px;

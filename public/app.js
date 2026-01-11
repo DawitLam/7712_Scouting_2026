@@ -30,36 +30,19 @@ window.addEventListener('DOMContentLoaded', function () {
     } catch (e) {
         // best-effort cleanup
     }
-
-    const defenseSelect = document.getElementById('playedDefense');
-    if (defenseSelect) {
-        defenseSelect.addEventListener('change', handleDefenseToggle);
-        handleDefenseToggle();
-    }
 });
 
 // Core app logic
 const MATCHES_KEY = 'team7712_matches';
+const PIT_SCOUTS_KEY = 'team7712_pitscouts';
 let navigationHistory = ['homePage'];
 let currentPage = 'homePage';
 let isModalOpen = false;
-let defensePollInterval = null;
 let modalHistory = [];
 let currentQRChunks = [];
 let currentQRChunkIndex = 0;
 let currentQRImages = [];
 const QR_MAX_PAYLOAD_CHARS = 2800;
-const DEFENSE_ZONE_CODES = {
-    'None': 'N',
-    'Near Reef': 'R',
-    'Midfield': 'M',
-    'Loading Zone': 'L',
-    'Barge': 'B'
-};
-const DEFENSE_ZONE_LABELS = Object.keys(DEFENSE_ZONE_CODES).reduce((acc, key) => {
-    acc[DEFENSE_ZONE_CODES[key]] = key;
-    return acc;
-}, {});
 
 window.addEventListener('load', function() {
     history.replaceState({page: 'homePage', modal: null}, '', '#home');
@@ -80,7 +63,7 @@ window.addEventListener('load', function() {
 });
 
 function getPageHash(pageId) {
-    const pageNames = { 'homePage': '#home', 'scoutPage': '#scout', 'dataPage': '#data' };
+    const pageNames = { 'homePage': '#home', 'scoutPage': '#scout', 'pitScoutPage': '#pitscout', 'dataPage': '#data' };
     return pageNames[pageId] || '#home';
 }
 
@@ -120,43 +103,6 @@ function showPage(pageId, addToHistory = true) {
     if (pageId === 'homePage') document.body.classList.add('home-active'); else document.body.classList.remove('home-active');
     if (pageId === 'dataPage') loadData();
     if (pageId === 'collectorPage') initCollector();
-    if (pageId === 'scoutPage') {
-        const defenseSelect = document.getElementById('playedDefense');
-        if (defenseSelect && !defenseSelect.hasAttribute('data-listener-attached')) {
-            defenseSelect.addEventListener('change', handleDefenseToggle);
-            defenseSelect.setAttribute('data-listener-attached', 'true');
-            handleDefenseToggle();
-        }
-
-        // Start a short-lived poll to catch any UI frameworks or styling layers that
-        // might not trigger native change events. This will stop when user leaves.
-        let lastVal = defenseSelect ? defenseSelect.value : null;
-        if (!defensePollInterval) {
-            defensePollInterval = setInterval(() => {
-                const el = document.getElementById('playedDefense');
-                if (!el) return;
-                if (el.value !== lastVal) {
-                    lastVal = el.value;
-                    handleDefenseToggle();
-                    console.debug('defensePoll detected change', lastVal);
-                }
-            }, 250);
-        }
-    } else {
-        // Clear polling when leaving the scout page
-        if (defensePollInterval) { clearInterval(defensePollInterval); defensePollInterval = null; }
-    }
-}
-
-function handleDefenseToggle() {
-    const defenseSelect = document.getElementById('playedDefense');
-    const zoneSelect = document.getElementById('defenseZone');
-    if (!defenseSelect || !zoneSelect) return;
-    const isDefense = defenseSelect.value === 'Yes';
-    zoneSelect.disabled = !isDefense;
-    if (!isDefense) {
-        zoneSelect.value = 'None';
-    }
 }
 
 // Temporary debug helper to programmatically test whether the defense UI reacts correctly.
@@ -172,22 +118,11 @@ window.testQRChunking = function (numMatches = 50) {
         alliance: i % 2 === 0 ? 'red' : 'blue',
         scoutName: `Test${i}`,
         mobility: 'Yes',
-        autoCoralL1: i % 3,
-        autoCoralL2: i % 2,
-        autoCoralL3: 0,
-        autoCoralL4: 0,
-        autoAlgaeNetted: 0,
-        autoAlgaeProcessor: 0,
-        teleopCoralL1: 1,
-        teleopCoralL2: 0,
-        teleopCoralL3: 0,
-        teleopCoralL4: 0,
-        teleopAlgaeNetted: 0,
-        teleopAlgaeProcessor: 0,
+        autoFuel: i % 3,
+        autoTower: i % 2 === 0 ? 'Level 1' : 'None',
+        teleopFuel: i % 5,
+        teleopTower: i % 3 === 0 ? 'Level 2' : 'None',
         playedDefense: i % 4 === 0 ? 'Yes' : 'No',
-        defenseZone: i % 4 === 0 ? 'Near Reef' : 'None',
-        park: 'No',
-        climb: 'No',
         notes: 'Auto-generated for QR chunk test',
         timestamp: now,
         id: Date.now() + i
@@ -499,22 +434,12 @@ function submitMatch(event) {
         alliance: formData.get('alliance'),
         scoutName: formData.get('scoutName'),
         mobility: formData.get('mobility') || 'No',
-        autoCoralL1: parseInt(document.getElementById('autoCoralL1').value || 0),
-        autoCoralL2: parseInt(document.getElementById('autoCoralL2').value || 0),
-        autoCoralL3: parseInt(document.getElementById('autoCoralL3').value || 0),
-        autoCoralL4: parseInt(document.getElementById('autoCoralL4').value || 0),
-        autoAlgaeNetted: parseInt(document.getElementById('autoAlgaeNetted').value || 0),
-        autoAlgaeProcessor: parseInt(document.getElementById('autoAlgaeProcessor').value || 0),
-        teleopCoralL1: parseInt(document.getElementById('teleopCoralL1').value || 0),
-        teleopCoralL2: parseInt(document.getElementById('teleopCoralL2').value || 0),
-        teleopCoralL3: parseInt(document.getElementById('teleopCoralL3').value || 0),
-        teleopCoralL4: parseInt(document.getElementById('teleopCoralL4').value || 0),
-        teleopAlgaeNetted: parseInt(document.getElementById('teleopAlgaeNetted').value || 0),
-        teleopAlgaeProcessor: parseInt(document.getElementById('teleopAlgaeProcessor').value || 0),
+        autoFuel: parseInt(document.getElementById('autoFuel').value || 0),
+        autoTower: formData.get('autoTower') || 'None',
+        teleopFuel: parseInt(document.getElementById('teleopFuel').value || 0),
+        navigation: formData.get('navigation') || 'Not observed',
+        teleopTower: formData.get('teleopTower') || 'None',
         playedDefense: formData.get('playedDefense') || 'No',
-        defenseZone: (formData.get('defenseZone') || 'None'),
-        park: formData.get('park') || 'No',
-        climb: formData.get('climb') || 'Yes, Shallow',
         notes: formData.get('notes') || '',
         timestamp: new Date().toISOString(),
         id: Date.now()
@@ -525,7 +450,6 @@ function submitMatch(event) {
     showNotification(`Match ${matchData.matchNumber} saved successfully!`, 'success');
     form.reset();
     resetCounters();
-    handleDefenseToggle();
     setTimeout(() => navigateToPage('homePage'), 2000);
 }
 
@@ -534,7 +458,7 @@ function incCounter(name) {
     const valueEl = document.getElementById(name + 'Value');
     const next = Math.max(0, (parseInt(input.value || '0') + 1));
     input.value = String(next);
-    if (valueEl) valueEl.textContent = String(next);
+    if (valueEl) valueEl.value = String(next);
 }
 
 function decCounter(name) {
@@ -542,93 +466,201 @@ function decCounter(name) {
     const valueEl = document.getElementById(name + 'Value');
     const next = Math.max(0, (parseInt(input.value || '0') - 1));
     input.value = String(next);
-    if (valueEl) valueEl.textContent = String(next);
+    if (valueEl) valueEl.value = String(next);
 }
 
 function resetCounters() {
-    const names = [
-        'autoCoralL1','autoCoralL2','autoCoralL3','autoCoralL4',
-        'autoAlgaeNetted','autoAlgaeProcessor',
-        'teleopCoralL1','teleopCoralL2','teleopCoralL3','teleopCoralL4',
-        'teleopAlgaeNetted','teleopAlgaeProcessor'
-    ];
+    const names = ['autoFuel', 'teleopFuel'];
     names.forEach(name => {
         const input = document.getElementById(name);
         const valueEl = document.getElementById(name + 'Value');
         if (input) input.value = '0';
-        if (valueEl) valueEl.textContent = '0';
+        if (valueEl) valueEl.value = '0';
     });
+}
+
+function updateCounterFromInput(name) {
+    const valueEl = document.getElementById(name + 'Value');
+    const input = document.getElementById(name);
+    if (!valueEl || !input) return;
+    
+    let val = parseInt(valueEl.value || '0');
+    if (isNaN(val) || val < 0) val = 0;
+    
+    valueEl.value = String(val);
+    input.value = String(val);
+}
+
+function getLocalPitScouts() {
+    try { return JSON.parse(localStorage.getItem(PIT_SCOUTS_KEY) || '[]'); } catch { return []; }
+}
+
+function submitPitScout(event) {
+    event.preventDefault();
+    const form = document.getElementById('pitScoutForm');
+    const formData = new FormData(form);
+    const pitData = {
+        teamNumber: parseInt(formData.get('pitTeamNumber')),
+        scoutName: formData.get('pitScoutName'),
+        robotDimension: formData.get('robotDimension') || '',
+        robotWeight: formData.get('robotWeight') || '',
+        drivetrainType: formData.get('drivetrainType') || 'Not specified',
+        navigationCapability: formData.get('navigationCapability') || 'Not specified',
+        autoScore: formData.get('autoScore') || '',
+        fuelCapacity: formData.get('fuelCapacity') || '',
+        climbCapability: formData.get('climbCapability') || 'Not specified',
+        driverExperience: formData.get('driverExperience') || 'Not specified',
+        pitNotes: formData.get('pitNotes') || '',
+        timestamp: new Date().toISOString(),
+        id: Date.now()
+    };
+    const pitScouts = getLocalPitScouts();
+    // Check if team already scouted, update instead of duplicate
+    const existingIndex = pitScouts.findIndex(p => p.teamNumber === pitData.teamNumber);
+    if (existingIndex >= 0) {
+        pitScouts[existingIndex] = pitData;
+        showNotification(`Team ${pitData.teamNumber} pit data updated!`, 'success');
+    } else {
+        pitScouts.push(pitData);
+        showNotification(`Team ${pitData.teamNumber} pit data saved!`, 'success');
+    }
+    localStorage.setItem(PIT_SCOUTS_KEY, JSON.stringify(pitScouts));
+    form.reset();
+    setTimeout(() => navigateToPage('homePage'), 2000);
 }
 
 function loadData() {
     const matches = getLocalMatches();
+    const pitScouts = getLocalPitScouts();
     const display = document.getElementById('dataDisplay');
-    if (matches.length === 0) {
+    
+    if (matches.length === 0 && pitScouts.length === 0) {
         display.innerHTML = `
             <div style="text-align: center; padding: 50px; color: #ccc;">
                 <div style="font-size: 64px; margin-bottom: 25px;"></div>
-                <h3 style="font-size: 24px; margin-bottom: 15px; color: #DAA520;">No matches recorded yet</h3>
-                <p style="font-size: 18px; margin-bottom: 25px;">Start by scouting your first match!</p>
-                <button class="btn success" onclick="navigateToPage('scoutPage')" style="width: auto; padding: 20px 40px;">Scout First Match</button>
+                <h3 style="font-size: 24px; margin-bottom: 15px; color: #DAA520;">No data recorded yet</h3>
+                <p style="font-size: 18px; margin-bottom: 25px;">Start scouting!</p>
+                <button class="btn success" onclick="navigateToPage('scoutPage')" style="width: auto; padding: 20px 40px; margin: 10px;">Scout Match</button>
+                <button class="btn success" onclick="navigateToPage('pitScoutPage')" style="width: auto; padding: 20px 40px; margin: 10px;">Pit Scout</button>
             </div>
         `;
         return;
     }
-    let html = `<div style="text-align: center; margin-bottom: 25px;">
-        <h3 style="color: #DAA520; font-size: 28px;">${matches.length} Match${matches.length !== 1 ? 'es' : ''} Recorded</h3>
-    </div>`;
-    matches.sort((a, b) => (a.matchNumber || 0) - (b.matchNumber || 0)).forEach(match => {
-        const totalAutoCoral = (match.autoCoralL1 || 0) + (match.autoCoralL2 || 0) + (match.autoCoralL3 || 0) + (match.autoCoralL4 || 0);
-        const totalTeleopCoral = (match.teleopCoralL1 || 0) + (match.teleopCoralL2 || 0) + (match.teleopCoralL3 || 0) + (match.teleopCoralL4 || 0);
+    
+    let html = '';
+    
+    // Pit Scout Data Section
+    if (pitScouts.length > 0) {
+        html += `<div style="margin-bottom: 40px;">
+            <h3 style="color: #DAA520; font-size: 28px; text-align: center; margin-bottom: 20px;">📋 ${pitScouts.length} Pit Scout${pitScouts.length !== 1 ? 's' : ''}</h3>`;
+        pitScouts.sort((a, b) => (a.teamNumber || 0) - (b.teamNumber || 0)).forEach(pit => {
+            html += `
+                <div class="match-card">
+                    <div class="match-header">Team ${pit.teamNumber} - Pit Scout</div>
+                    <div style="margin: 12px 0; font-size: 16px;"><strong>Scout:</strong> ${pit.scoutName}</div>
+                    <div style="margin: 12px 0; font-size: 16px;"><strong>Dimensions:</strong> ${pit.robotDimension || 'Not specified'} ${pit.robotWeight ? `| ${pit.robotWeight} lbs` : ''}</div>
+                    <div style="margin: 12px 0; font-size: 16px;"><strong>Drivetrain:</strong> ${pit.drivetrainType} | <strong>Navigation:</strong> ${pit.navigationCapability}</div>
+                    <div style="margin: 12px 0; font-size: 16px;"><strong>FUEL Capacity:</strong> ${pit.fuelCapacity || 'Unknown'} | <strong>Climb:</strong> ${pit.climbCapability}</div>
+                    ${pit.autoScore ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> ${pit.autoScore}</div>` : ''}
+                    <div style="margin: 12px 0; font-size: 16px;"><strong>Driver:</strong> ${pit.driverExperience}</div>
+                    ${pit.pitNotes ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Notes:</strong> ${pit.pitNotes}</div>` : ''}
+                    <div style="margin-top: 15px; font-size: 14px; color: #aaa;">Recorded: ${new Date(pit.timestamp).toLocaleString()}</div>
+                </div>
+            `;
+        });
+        html += `</div>`;
+    }
+    
+    // Match Data Section
+    if (matches.length > 0) {
+        html += `<div style="margin-bottom: 20px;">
+            <h3 style="color: #DAA520; font-size: 28px; text-align: center; margin-bottom: 20px;">🏆 ${matches.length} Match${matches.length !== 1 ? 'es' : ''}</h3>`;
+        matches.sort((a, b) => (a.matchNumber || 0) - (b.matchNumber || 0)).forEach(match => {
+        // Support both new (REBUILT) and old (REEFSCAPE) data formats
+        const autoFuel = match.autoFuel || 0;
+        const teleopFuel = match.teleopFuel || 0;
+        const autoTower = match.autoTower || 'None';
+        const teleopTower = match.teleopTower || 'None';
+        const navigation = match.navigation || 'Not observed';
+        
         html += `
             <div class="match-card">
                 <div class="match-header">Match ${match.matchNumber} - Team ${match.teamNumber}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Alliance:</strong> ${match.alliance} | <strong>Scout:</strong> ${match.scoutName}</div>
                 ${match.location ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Location:</strong> ${match.location}</div>` : ''}
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> Mobility=${match.mobility}, ${totalAutoCoral} Coral, ${match.autoAlgaeNetted || 0} Algae Netted</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> ${totalTeleopCoral} Coral, ${match.teleopAlgaeNetted || 0} Algae Netted</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Defense:</strong> ${match.playedDefense === 'Yes' ? `Yes (${match.defenseZone || 'Unknown'})` : 'No'}</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Park=${match.park}, Climb=${match.climb}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> Mobility=${match.mobility}, ${autoFuel} FUEL, Tower=${autoTower}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> ${teleopFuel} FUEL | Nav: ${navigation}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Defense:</strong> ${match.playedDefense === 'Yes' ? 'Yes' : 'No'}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Tower=${teleopTower}</div>
                 ${match.notes ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Notes:</strong> ${match.notes}</div>` : ''}
                 <div style="margin-top: 15px; font-size: 14px; color: #aaa;">Recorded: ${new Date(match.timestamp).toLocaleString()}</div>
             </div>
         `;
     });
+        html += `</div>`;
+    }
     display.innerHTML = html;
 }
 
 function generateCSV() {
     const matches = getLocalMatches();
-    const headers = ['Match','Team','Alliance','Scout','Mobility','AutoCoralL1','AutoCoralL2','AutoCoralL3','AutoCoralL4','AutoAlgaeNetted','AutoAlgaeProcessor','TeleopCoralL1','TeleopCoralL2','TeleopCoralL3','TeleopCoralL4','TeleopAlgaeNetted','TeleopAlgaeProcessor','PlayedDefense','DefenseZone','Park','Climb','Notes','Timestamp'];
-    const rows = matches.map(m => {
-        const safeNotes = (m.notes || '').replace(/"/g, '""');
-        return [
-            m.matchNumber,
-            m.teamNumber,
-            m.alliance,
-            m.scoutName,
-            m.mobility,
-            m.autoCoralL1,
-            m.autoCoralL2,
-            m.autoCoralL3,
-            m.autoCoralL4,
-            m.autoAlgaeNetted,
-            m.autoAlgaeProcessor,
-            m.teleopCoralL1,
-            m.teleopCoralL2,
-            m.teleopCoralL3,
-            m.teleopCoralL4,
-            m.teleopAlgaeNetted,
-            m.teleopAlgaeProcessor,
-            m.playedDefense,
-            m.defenseZone,
-            m.park,
-            m.climb,
-            `"${safeNotes}"`,
-            m.timestamp
-        ].join(',');
-    });
-    return [headers.join(','), ...rows].join('\n');
+    const pitScouts = getLocalPitScouts();
+    
+    let csv = '';
+    
+    // Match Data CSV
+    if (matches.length > 0) {
+        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','Mobility','AutoFuel','AutoTower','TeleopFuel','Navigation','TeleopTower','PlayedDefense','Notes','Timestamp'];
+        const matchRows = matches.map(m => {
+            const safeNotes = (m.notes || '').replace(/"/g, '""');
+            return [
+                'Match',
+                m.matchNumber,
+                m.teamNumber,
+                m.alliance,
+                m.scoutName,
+                m.location || '',
+                m.mobility,
+                m.autoFuel || 0,
+                m.autoTower || 'None',
+                m.teleopFuel || 0,
+                m.navigation || 'Not observed',
+                m.teleopTower || 'None',
+                m.playedDefense,
+                `"${safeNotes}"`,
+                m.timestamp
+            ].join(',');
+        });
+        csv = [matchHeaders.join(','), ...matchRows].join('\n');
+    }
+    
+    // Pit Scout Data CSV
+    if (pitScouts.length > 0) {
+        const pitHeaders = ['Type','Team','Scout','Dimensions','Weight','Drivetrain','Navigation','AutoScore','FuelCapacity','ClimbCapability','DriverExperience','Notes','Timestamp'];
+        const pitRows = pitScouts.map(p => {
+            const safeAutoScore = (p.autoScore || '').replace(/"/g, '""');
+            const safePitNotes = (p.pitNotes || '').replace(/"/g, '""');
+            return [
+                'PitScout',
+                p.teamNumber,
+                p.scoutName,
+                p.robotDimension || '',
+                p.robotWeight || '',
+                p.drivetrainType,
+                p.navigationCapability,
+                `"${safeAutoScore}"`,
+                p.fuelCapacity || '',
+                p.climbCapability,
+                p.driverExperience,
+                `"${safePitNotes}"`,
+                p.timestamp
+            ].join(',');
+        });
+        if (csv) csv += '\n\n'; // Separate sections
+        csv += [pitHeaders.join(','), ...pitRows].join('\n');
+    }
+    
+    return csv;
 }
 
 async function generateQR(text, size = 300) {
@@ -843,6 +875,7 @@ function buildImportUrl(csvText) {
 
 function clearAllData() {
     localStorage.removeItem(MATCHES_KEY);
+    localStorage.removeItem(PIT_SCOUTS_KEY);
     showNotification('All scouting data has been cleared', 'success');
     closeModal();
     if (currentPage === 'dataPage') { loadData(); }
@@ -850,7 +883,8 @@ function clearAllData() {
 
 function openExportModal() {
     const matches = getLocalMatches();
-    if (matches.length === 0) { showNotification('No data to export yet', 'warning'); return; }
+    const pitScouts = getLocalPitScouts();
+    if (matches.length === 0 && pitScouts.length === 0) { showNotification('No data to export yet', 'warning'); return; }
     isModalOpen = true;
     const csvData = generateCSV();
     const modal = document.createElement('div');
