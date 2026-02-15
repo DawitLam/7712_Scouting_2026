@@ -564,8 +564,8 @@ function loadData() {
             const multiScout = observations.length > 1;
             observations.forEach((match, idx) => {
         // Support both new (REBUILT) and old (REEFSCAPE) data formats
-                const autoFuelCategory = match.autoFuelCategory || match.autoFuel !== undefined ? `${match.autoFuel} FUEL` : 'Not observed';
-                const teleopFuelCategory = match.teleopFuelCategory || match.teleopFuel !== undefined ? `${match.teleopFuel} FUEL` : 'Not observed';
+                const autoFuelCategory = match.autoFuelCategory || (match.autoFuel !== undefined ? `${match.autoFuel} FUEL` : 'Not observed');
+                const teleopFuelCategory = match.teleopFuelCategory || (match.teleopFuel !== undefined ? `${match.teleopFuel} FUEL` : 'Not observed');
                 const autoTower = match.autoTower || 'None';
                 const teleopTower = match.teleopTower || 'None';
                 const navigation = match.navigation || 'Not observed';
