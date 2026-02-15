@@ -856,104 +856,126 @@ function clearAllData() {
     if (currentPage === 'dataPage') { loadData(); }
 }
 
-function openExportModal() {
+function openExportModal() { openTransferModal(); }
+function openShareModal() { openTransferModal(); }
+
+async function openTransferModal() {
     const matches = getLocalMatches();
     const pitScouts = getLocalPitScouts();
-    if (matches.length === 0 && pitScouts.length === 0) { showNotification('No data to export yet', 'warning'); return; }
-    isModalOpen = true;
+    if (matches.length === 0 && pitScouts.length === 0) { showNotification('No data to transfer yet', 'warning'); return; }
+
     const csvData = generateCSV();
+    const hasBluetooth = !!navigator.bluetooth;
+    const hasNativeShare = !!navigator.share;
+
+    isModalOpen = true;
     const modal = document.createElement('div');
     modal.className = 'share-modal';
+    window.currentCSV = csvData;
+
     modal.innerHTML = `
-        <div class="share-content">
-            <h2 style="color: #DAA520; font-size: 28px;">Export Scouting Data</h2>
-            <p style="font-size: 18px;"><strong>${matches.length} matches</strong> ready to export</p>
-            <div class="share-buttons">
-                <button class="share-btn copy" onclick="copyCSV()">Copy CSV</button>
-                <button class="share-btn download" onclick="downloadCSV()">Download CSV</button>
-                <button class="share-btn qr" onclick="showQRForOffline()">QR Code (Offline)</button>
-                <button class="share-btn native" onclick="shareNative()">Native Share</button>
+        <div class="share-content" style="max-height: 90vh; overflow-y: auto;">
+            <h2 style="color: #DAA520; font-size: 28px;">Transfer Data</h2>
+            <p style="font-size: 18px;"><strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong>${pitScouts.length > 0 ? `, <strong>${pitScouts.length} pit scout${pitScouts.length !== 1 ? 's' : ''}</strong>` : ''} ready</p>
+
+            <div style="margin: 18px 0 8px; color: #DAA520; font-size: 16px; font-weight: bold; border-bottom: 1px solid #DAA520; padding-bottom: 6px;">📶 Online Transfer</div>
+            <div class="share-buttons" style="margin-bottom: 12px;">
+                <button class="share-btn copy" onclick="copyImportLink()">📋 Copy Import Link</button>
+                ${hasNativeShare ? '<button class="share-btn native" onclick="shareNative()">📤 Native Share</button>' : ''}
+            </div>
+
+            <div style="margin: 18px 0 8px; color: #DAA520; font-size: 16px; font-weight: bold; border-bottom: 1px solid #DAA520; padding-bottom: 6px;">📴 Offline Transfer (No WiFi)</div>
+            <div class="share-buttons" style="margin-bottom: 12px;">
+                <button class="share-btn qr" onclick="showQRForOffline()">📱 QR Code</button>
+                <button class="share-btn" onclick="shareViaBluetooth()">🔵 Bluetooth</button>
+                <button class="share-btn download" onclick="downloadCSV()">💾 Download CSV</button>
+                <button class="share-btn copy" onclick="copyCSV()">📋 Copy CSV</button>
+            </div>
+
+            <div style="margin: 18px 0 8px; color: #DAA520; font-size: 16px; font-weight: bold; border-bottom: 1px solid #DAA520; padding-bottom: 6px;">⚠️ Data Management</div>
+            <div class="share-buttons" style="margin-bottom: 12px;">
+                <button class="share-btn danger" onclick="openClearDataModal()">🗑️ Clear Data</button>
+            </div>
+
+            <details style="margin-top: 12px;">
+                <summary style="color: #DAA520; cursor: pointer; font-size: 16px; font-weight: bold;">📄 CSV Preview</summary>
+                <textarea id="csvPreview" readonly style="width: 100%; height: 150px; font-family: monospace; font-size: 13px; border: 2px solid #DAA520; border-radius: 8px; padding: 12px; background: rgba(0,0,0,0.3); color: white; margin-top: 8px;">${csvData}</textarea>
+            </details>
+
+            <div class="share-buttons" style="margin-top: 16px;">
                 <button class="share-btn close" onclick="closeModal()">Close</button>
             </div>
-            <h4 style="color: #DAA520; font-size: 20px;">CSV Preview:</h4>
-            <textarea id="csvPreview" readonly style="width: 100%; height: 180px; font-family: monospace; font-size: 14px; border: 3px solid #DAA520; border-radius: 12px; padding: 20px; background: rgba(0,0,0,0.3); color: white;">${csvData}</textarea>
         </div>
     `;
     document.body.appendChild(modal);
     window.currentModal = modal;
-    window.currentCSV = csvData;
     modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 }
 
-async function openShareModal() {
-    const matches = getLocalMatches();
-    if (matches.length === 0) { showNotification('No data to share yet', 'warning'); return; }
-    
-    const csvData = generateCSV();
-    const importUrl = buildImportUrl(csvData);
-    
-    // Show loading modal first
-    isModalOpen = true;
-    const modal = document.createElement('div');
-    modal.className = 'share-modal';
-    modal.innerHTML = `
-        <div class="share-content">
-            <h2 style="color: #DAA520; font-size: 28px;">Share Scouting Data</h2>
-            <p style="font-size: 18px;"><strong>${matches.length} matches</strong> ready to share via QR code</p>
-            <div class="qr-container">
-                <h3 style="color: #DAA520; font-size: 22px;">Generating QR Code...</h3>
-                <div id="qrcode" style="min-height: 220px; display: flex; align-items: center; justify-content: center;">
-                    <div style="color: #DAA520; font-size: 18px;">⏳ Please wait...</div>
+function shareViaBluetooth() {
+    const csvData = window.currentCSV || generateCSV();
+    const blob = new Blob([csvData], { type: 'text/csv' });
+    const fileName = `team7712_scouting_${new Date().toISOString().split('T')[0]}.csv`;
+    const file = new File([blob], fileName, { type: 'text/csv' });
+
+    // Method 1: Use Web Share API with file (works on Android for Bluetooth/Nearby Share)
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({
+            title: 'Team 7712 Scouting Data',
+            files: [file]
+        }).then(() => {
+            showNotification('File shared! Select Bluetooth or Nearby Share from the share menu.', 'success');
+            closeModal();
+        }).catch((err) => {
+            if (err.name !== 'AbortError') {
+                showNotification('Share cancelled or failed', 'warning');
+            }
+        });
+        return;
+    }
+
+    // Method 2: Fallback — download file and instruct user
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    closeModal();
+    setTimeout(() => {
+        isModalOpen = true;
+        const helpModal = document.createElement('div');
+        helpModal.className = 'share-modal';
+        helpModal.innerHTML = `
+            <div class="share-content">
+                <h2 style="color: #DAA520; font-size: 24px;">🔵 Send via Bluetooth</h2>
+                <div style="text-align: left; font-size: 16px; line-height: 1.8; margin: 16px 0;">
+                    <p>The CSV file has been downloaded. To send it via Bluetooth:</p>
+                    <p><strong>Android:</strong></p>
+                    <ol style="margin-left: 20px;">
+                        <li>Open <strong>Files</strong> app → Downloads</li>
+                        <li>Long-press the file <em>${fileName}</em></li>
+                        <li>Tap <strong>Share</strong> → <strong>Bluetooth</strong></li>
+                        <li>Select the receiving device</li>
+                    </ol>
+                    <p style="margin-top: 12px;"><strong>iPhone:</strong></p>
+                    <ol style="margin-left: 20px;">
+                        <li>Open <strong>Files</strong> app → Downloads</li>
+                        <li>Tap the file → Share icon</li>
+                        <li>Choose <strong>AirDrop</strong> (to other iPhones/Macs)</li>
+                    </ol>
+                    <p style="margin-top: 12px; color: #ccc;"><strong>Receiving device:</strong> Open the CSV file, copy its contents, then use <strong>Collect (QR)</strong> → paste, or import it directly.</p>
+                </div>
+                <div class="share-buttons">
+                    <button class="share-btn close" onclick="closeModal()">Got it</button>
                 </div>
             </div>
-            <div class="share-buttons">
-                <button class="share-btn copy" onclick="copyCSV()">Copy Data</button>
-                <button class="share-btn copy" onclick="copyImportLink()">Copy Import Link</button>
-                <button class="share-btn download" onclick="downloadQR()" disabled>Save QR Code</button>
-                <button class="share-btn danger" onclick="openClearDataModal()">Clear Data</button>
-                <button class="share-btn close" onclick="closeModal()">Close</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    window.currentModal = modal;
-    window.currentCSV = csvData;
-    window.currentImportUrl = importUrl;
-    modal.onclick = (e) => { if (e.target === modal) closeModal(); };
-    
-    // Generate QR code asynchronously
-    try {
-        const qrUrl = await generateQR(importUrl, 300);
-        window.currentQR = qrUrl;
-        
-        // Update modal with QR code
-        const qrContainer = modal.querySelector('#qrcode');
-        const titleEl = modal.querySelector('.qr-container h3');
-        if (qrContainer && titleEl) {
-            titleEl.textContent = 'Scan to Import Data';
-            qrContainer.innerHTML = `<img src="${qrUrl}" alt="QR Code" style="max-width: 220px; border-radius: 12px;">`;
-            const downloadBtn = modal.querySelector('.share-btn.download');
-            if (downloadBtn) downloadBtn.disabled = false;
-        }
-    } catch (error) {
-        console.error('QR generation error:', error);
-        const qrContainer = modal.querySelector('#qrcode');
-        const titleEl = modal.querySelector('.qr-container h3');
-        if (qrContainer && titleEl) {
-            titleEl.textContent = 'QR Generation Failed';
-            qrContainer.innerHTML = `<p style="color: #ff9800; padding: 20px;">Too much data for QR code.<br>Use Copy Data or Copy Import Link instead.</p>`;
-            // Offer to create offline multi-chunk QR codes automatically when data is too large
-            const buttonsEl = modal.querySelector('.share-buttons');
-            if (buttonsEl) {
-                const offlineBtn = document.createElement('button');
-                offlineBtn.className = 'share-btn qr';
-                offlineBtn.textContent = 'Create Offline QR Codes';
-                offlineBtn.onclick = () => { showQRForOffline(); };
-                buttonsEl.insertBefore(offlineBtn, buttonsEl.querySelector('.share-btn.danger'));
-            }
-        }
-        showNotification('QR generation failed - use Copy buttons instead', 'warning');
-    }
+        `;
+        document.body.appendChild(helpModal);
+        window.currentModal = helpModal;
+        helpModal.onclick = (e) => { if (e.target === helpModal) closeModal(); };
+    }, 100);
 }
 
 function parseCSVData(csvText) {
@@ -1039,7 +1061,7 @@ function openClearDataModal() {
                 <p style="font-size: 18px; margin: 25px 0;">You are about to delete <strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong> from your local storage.</p>
                 <p style="font-size: 16px; color: #ff9800; margin: 25px 0;"><strong>Warning:</strong> This action cannot be undone. Make sure you have exported your data first if you need to keep it.</p>
                 <div class="share-buttons">
-                    <button class="share-btn" onclick="openExportModal()">Export First</button>
+                    <button class="share-btn" onclick="openTransferModal()">Transfer First</button>
                     <button class="share-btn danger" onclick="clearAllData()">Delete All Data</button>
                     <button class="share-btn close" onclick="closeModal()">Cancel</button>
                 </div>
