@@ -560,6 +560,8 @@ function submitMatch(event) {
         foulsObserved: formData.get('foulsObserved') || 'None',
         robotStatus: formData.get('robotStatus') || 'Worked full match',
         consistencyRating: formData.get('consistencyRating') || 'Reliable',
+        humanPlayerTeam: formData.get('humanPlayerTeam') ? parseInt(formData.get('humanPlayerTeam')) : '',
+        humanPlayerRating: formData.get('humanPlayerRating') || 'Not observed',
         notes: formData.get('notes') || '',
         timestamp: new Date().toISOString(),
         id: Date.now()
@@ -701,6 +703,7 @@ function loadData() {
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Defense:</strong> ${match.playedDefense === 'Yes' ? 'Yes' : 'No'}${match.defenseEffectiveness && match.defenseEffectiveness !== 'Not applicable' ? ` (${match.defenseEffectiveness})` : ''}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Tower=${teleopTower}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Performance:</strong> Fouls=${match.foulsObserved || 'None'}, Status=${match.robotStatus || 'Worked full match'}, Consistency=${match.consistencyRating || 'Reliable'}</div>
+                ${match.humanPlayerTeam ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Human Player:</strong> Team ${match.humanPlayerTeam} — ${match.humanPlayerRating || 'Not observed'}</div>` : ''}
                 ${match.notes ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Notes:</strong> ${match.notes}</div>` : ''}
                     <div style="margin-top: 15px; font-size: 14px; color: #aaa;">Recorded: ${new Date(match.timestamp).toLocaleString()}</div>
                 </div>
@@ -720,7 +723,7 @@ function generateCSV() {
     
     // Match Data CSV
     if (matches.length > 0) {
-        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','StartPosition','AutoFuelCategory','AutoTower','TeleopFuelCategory','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','Notes','Timestamp'];
+        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','StartPosition','AutoFuelCategory','AutoTower','TeleopFuelCategory','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','HumanPlayerTeam','HumanPlayerRating','Notes','Timestamp'];
         const matchRows = matches.map(m => {
             const safeNotes = (m.notes || '').replace(/"/g, '""');
             return [
@@ -741,6 +744,8 @@ function generateCSV() {
                 m.foulsObserved || 'None',
                 m.robotStatus || 'Worked full match',
                 m.consistencyRating || 'Reliable',
+                m.humanPlayerTeam || '',
+                m.humanPlayerRating || 'Not observed',
                 `"${safeNotes}"`,
                 m.timestamp
             ].join(',');
@@ -881,6 +886,8 @@ function encodeMatchRecord(match) {
         match.foulsObserved || 'None',
         match.robotStatus || 'Worked full match',
         match.consistencyRating || 'Reliable',
+        match.humanPlayerTeam || '',
+        match.humanPlayerRating || 'Not observed',
         note
     ].join('|');
 }
@@ -939,8 +946,16 @@ function decodeMatchesFromQR(qrText) {
 
 function decodeMatchLine(line) {
     const parts = line.split('|');
-    // REBUILT 2026 format: 16 fields (match, team, alliance, scout, location, autoFuel, autoTower, teleopFuel, nav, teleopTower, defense, defenseEff, fouls, status, consistency, notes)
-    if (parts.length < 15) return null; // At least enough fields for core data
+    // Format versions by field count:
+    // v2.0: 16 fields (no startPosition, no human player)
+    // v2.2: 17 fields (startPosition added at index 5)
+    // v2.3: 19 fields (humanPlayerTeam + humanPlayerRating added at indices 16-17, notes at 18)
+    if (parts.length < 15) return null;
+    
+    // Determine format version by field count
+    const hasStartPos = parts.length >= 17; // v2.2+
+    const hasHumanPlayer = parts.length >= 19; // v2.3+
+    const o = hasStartPos ? 1 : 0; // offset for startPosition insertion
     
     return {
         matchNumber: parseInt(parts[0], 10) || 0,
@@ -948,19 +963,20 @@ function decodeMatchLine(line) {
         alliance: parts[2] === 'r' ? 'red' : 'blue',
         scoutName: parts[3] || '',
         location: parts[4] || '',
-        // v2.2.0 added startPosition at index 5; detect old format by count
-        startPosition: parts.length > 16 ? (parts[5] || 'Not recorded') : 'Not recorded',
-        autoFuelCategory: parts[parts.length > 16 ? 6 : 5] || 'Not observed',
-        autoTower: parts[parts.length > 16 ? 7 : 6] || 'None',
-        teleopFuelCategory: parts[parts.length > 16 ? 8 : 7] || 'Not observed',
-        navigation: parts[parts.length > 16 ? 9 : 8] || 'Not observed',
-        teleopTower: parts[parts.length > 16 ? 10 : 9] || 'None',
-        playedDefense: parts[parts.length > 16 ? 11 : 10] === 'Y' ? 'Yes' : 'No',
-        defenseEffectiveness: parts[parts.length > 16 ? 12 : 11] || 'Not applicable',
-        foulsObserved: parts[parts.length > 16 ? 13 : 12] || 'None',
-        robotStatus: parts[parts.length > 16 ? 14 : 13] || 'Worked full match',
-        consistencyRating: parts[parts.length > 16 ? 15 : 14] || 'Reliable',
-        notes: parts.slice(parts.length > 16 ? 16 : 15).join('|') || '',
+        startPosition: hasStartPos ? (parts[5] || 'Not recorded') : 'Not recorded',
+        autoFuelCategory: parts[5 + o] || 'Not observed',
+        autoTower: parts[6 + o] || 'None',
+        teleopFuelCategory: parts[7 + o] || 'Not observed',
+        navigation: parts[8 + o] || 'Not observed',
+        teleopTower: parts[9 + o] || 'None',
+        playedDefense: parts[10 + o] === 'Y' ? 'Yes' : 'No',
+        defenseEffectiveness: parts[11 + o] || 'Not applicable',
+        foulsObserved: parts[12 + o] || 'None',
+        robotStatus: parts[13 + o] || 'Worked full match',
+        consistencyRating: parts[14 + o] || 'Reliable',
+        humanPlayerTeam: hasHumanPlayer ? (parts[15 + o] || '') : '',
+        humanPlayerRating: hasHumanPlayer ? (parts[16 + o] || 'Not observed') : 'Not observed',
+        notes: parts.slice(hasHumanPlayer ? 17 + o : 15 + o).join('|') || '',
         timestamp: new Date().toISOString(),
         id: Date.now() + Math.random()
     };

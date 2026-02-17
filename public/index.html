@@ -35,7 +35,7 @@
             <img id="teamLogo" src="./team7712_logo_reefscape.png?v=20251205" alt="Team 7712 Logo" class="logo">
             <h1>Team 7712 ACCN-Umoja</h1>
             <div class="subtitle">FRC 2026 Scouting - REBUILT</div>
-            <div style="margin-top:6px; font-size:12px; color:#ccc;">Build v2.1.0</div>
+            <div style="margin-top:6px; font-size:12px; color:#ccc;">Build v2.2.0</div>
         </div>
 
         <!-- Home Page -->
@@ -201,6 +201,24 @@
                     </select>
                     <small style="color: #666;">Compare this match to their typical performance</small>
                 </div>
+
+                <h3>Human Player</h3>
+                <div class="form-group">
+                    <label for="humanPlayerTeam">Human Player Team #</label>
+                    <input type="number" id="humanPlayerTeam" name="humanPlayerTeam" min="1" max="99999" placeholder="Team number of human player">
+                    <small style="color: #666;">Enter the team number of your alliance's human player</small>
+                </div>
+                <div class="form-group">
+                    <label for="humanPlayerRating">Human Player Performance</label>
+                    <select id="humanPlayerRating" name="humanPlayerRating">
+                        <option value="Not observed" selected>Not observed</option>
+                        <option value="Good">Good - Accurate & fast FUEL feeds</option>
+                        <option value="Average">Average - Some missed feeds</option>
+                        <option value="Poor">Poor - Slow or inaccurate feeds</option>
+                    </select>
+                    <small style="color: #666;">Rate accuracy and speed of FUEL feeding to robots</small>
+                </div>
+
                 <div class="form-group">
                     <label for="notes">Notes</label>
                     <textarea id="notes" name="notes" rows="4" placeholder="Observations, issues, strengths..."></textarea>
