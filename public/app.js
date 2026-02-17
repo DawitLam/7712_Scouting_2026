@@ -427,6 +427,118 @@ function getLocalMatches() {
     try { return JSON.parse(localStorage.getItem(MATCHES_KEY) || '[]'); } catch { return []; }
 }
 
+// One-button malfunction — auto-fills status fields for a broken robot
+function markRobotMalfunction() {
+    document.getElementById('robotStatus').value = 'Disabled';
+    document.getElementById('consistencyRating').value = 'Unreliable';
+    document.getElementById('autoFuelCategory').value = 'None';
+    document.getElementById('teleopFuelCategory').value = 'None';
+    const autoTower = document.getElementById('autoTower');
+    if (autoTower) autoTower.value = 'None';
+    const teleopTower = document.getElementById('teleopTower');
+    if (teleopTower) teleopTower.value = 'None';
+    showNotification('Robot marked as malfunction — review & save', 'warning');
+}
+
+// Pit Scout: Robot photo capture
+let robotPhotoData = null;
+
+function captureRobotPhoto() {
+    document.getElementById('robotCameraInput').click();
+}
+
+function pickRobotPhoto() {
+    document.getElementById('robotPhotoInput').click();
+}
+
+function handleRobotPhoto(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        // Resize to save storage space (max 800px wide)
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxW = 800;
+            const scale = Math.min(1, maxW / img.width);
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            robotPhotoData = canvas.toDataURL('image/jpeg', 0.7);
+            const preview = document.getElementById('robotPhotoPreview');
+            if (preview) { preview.src = robotPhotoData; preview.style.display = 'block'; }
+            showNotification('Photo captured!', 'success');
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+// Live camera QR scanning
+let liveScanStream = null;
+let liveScanTimer = null;
+
+function startLiveCameraScan() {
+    const container = document.getElementById('liveScanContainer');
+    const video = document.getElementById('scanVideo');
+    const status = document.getElementById('scanStatus');
+    if (!container || !video) return;
+
+    container.style.display = 'block';
+    status.textContent = 'Starting camera...';
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(stream => {
+            liveScanStream = stream;
+            video.srcObject = stream;
+            video.play();
+            status.textContent = 'Point camera at QR code...';
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            liveScanTimer = setInterval(() => {
+                if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                // Try jsQR first (bundled), then BarcodeDetector
+                if (window.jsQR) {
+                    const code = jsQR(imageData.data, canvas.width, canvas.height);
+                    if (code && code.data) {
+                        status.textContent = 'QR found! Importing...';
+                        const ok = handleScannedContent(code.data);
+                        if (ok) { stopLiveCameraScan(); return; }
+                    }
+                } else if (barcodeDetector) {
+                    barcodeDetector.detect(canvas).then(detections => {
+                        if (detections && detections.length) {
+                            status.textContent = 'QR found! Importing...';
+                            const ok = handleScannedContent(detections[0].rawValue || '');
+                            if (ok) stopLiveCameraScan();
+                        }
+                    }).catch(() => {});
+                }
+            }, 300);
+        })
+        .catch(err => {
+            status.textContent = 'Camera access denied. Try "Scan QR From Image" instead.';
+            showNotification('Camera access failed: ' + err.message, 'error');
+        });
+}
+
+function stopLiveCameraScan() {
+    if (liveScanTimer) { clearInterval(liveScanTimer); liveScanTimer = null; }
+    if (liveScanStream) { liveScanStream.getTracks().forEach(t => t.stop()); liveScanStream = null; }
+    const container = document.getElementById('liveScanContainer');
+    if (container) container.style.display = 'none';
+    const video = document.getElementById('scanVideo');
+    if (video) video.srcObject = null;
+}
+
 function submitMatch(event) {
     event.preventDefault();
     const form = document.getElementById('matchForm');
@@ -437,6 +549,7 @@ function submitMatch(event) {
         location: (formData.get('location') || '').trim(),
         alliance: formData.get('alliance'),
         scoutName: formData.get('scoutName'),
+        startPosition: formData.get('startPosition') || 'Not recorded',
         autoFuelCategory: formData.get('autoFuelCategory') || 'Not observed',
         autoTower: formData.get('autoTower') || 'None',
         teleopFuelCategory: formData.get('teleopFuelCategory') || 'Not observed',
@@ -479,6 +592,7 @@ function submitPitScout(event) {
         climbCapability: formData.get('climbCapability') || 'Not specified',
         driverExperience: formData.get('driverExperience') || 'Not specified',
         pitNotes: formData.get('pitNotes') || '',
+        robotPhoto: robotPhotoData || '',
         timestamp: new Date().toISOString(),
         id: Date.now()
     };
@@ -494,6 +608,9 @@ function submitPitScout(event) {
     }
     localStorage.setItem(PIT_SCOUTS_KEY, JSON.stringify(pitScouts));
     form.reset();
+    robotPhotoData = null;
+    const preview = document.getElementById('robotPhotoPreview');
+    if (preview) { preview.style.display = 'none'; preview.src = ''; }
     setTimeout(() => navigateToPage('homePage'), 2000);
 }
 
@@ -532,6 +649,7 @@ function loadData() {
                     ${pit.autoScore ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> ${pit.autoScore}</div>` : ''}
                     <div style="margin: 12px 0; font-size: 16px;"><strong>Driver:</strong> ${pit.driverExperience}</div>
                     ${pit.pitNotes ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Notes:</strong> ${pit.pitNotes}</div>` : ''}
+                    ${pit.robotPhoto ? `<div style="margin: 12px 0; text-align:center;"><img src="${pit.robotPhoto}" alt="Robot ${pit.teamNumber}" style="max-width:100%; max-height:250px; border-radius:12px; border:2px solid #DAA520;"></div>` : ''}
                     <div style="margin-top: 15px; font-size: 14px; color: #aaa;">Recorded: ${new Date(pit.timestamp).toLocaleString()}</div>
                 </div>
             `;
@@ -577,6 +695,7 @@ function loadData() {
                         <div class="match-header">Match ${match.matchNumber} - Team ${match.teamNumber}${scoutIndicator}</div>
                         <div style="margin: 12px 0; font-size: 16px;"><strong>Alliance:</strong> ${match.alliance} | <strong>Scout:</strong> ${match.scoutName}</div>
                 ${match.location ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Location:</strong> ${match.location}</div>` : ''}
+                ${match.startPosition && match.startPosition !== 'Not recorded' ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Start:</strong> ${match.startPosition}</div>` : ''}
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> FUEL: ${autoFuelCategory}, Tower=${autoTower}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> FUEL: ${teleopFuelCategory} | Nav: ${navigation}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Defense:</strong> ${match.playedDefense === 'Yes' ? 'Yes' : 'No'}${match.defenseEffectiveness && match.defenseEffectiveness !== 'Not applicable' ? ` (${match.defenseEffectiveness})` : ''}</div>
@@ -601,7 +720,7 @@ function generateCSV() {
     
     // Match Data CSV
     if (matches.length > 0) {
-        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','AutoFuelCategory','AutoTower','TeleopFuelCategory','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','Notes','Timestamp'];
+        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','StartPosition','AutoFuelCategory','AutoTower','TeleopFuelCategory','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','Notes','Timestamp'];
         const matchRows = matches.map(m => {
             const safeNotes = (m.notes || '').replace(/"/g, '""');
             return [
@@ -611,6 +730,7 @@ function generateCSV() {
                 m.alliance,
                 m.scoutName,
                 m.location || '',
+                m.startPosition || 'Not recorded',
                 m.autoFuelCategory || (m.autoFuel !== undefined ? `${m.autoFuel} FUEL` : 'Not observed'),
                 m.autoTower || 'None',
                 m.teleopFuelCategory || (m.teleopFuel !== undefined ? `${m.teleopFuel} FUEL` : 'Not observed'),
@@ -750,6 +870,7 @@ function encodeMatchRecord(match) {
         (match.alliance || 'red')[0],
         match.scoutName || '',
         match.location || '',
+        match.startPosition || 'Not recorded',
         match.autoFuelCategory || 'Not observed',
         match.autoTower || 'None',
         match.teleopFuelCategory || 'Not observed',
@@ -827,17 +948,19 @@ function decodeMatchLine(line) {
         alliance: parts[2] === 'r' ? 'red' : 'blue',
         scoutName: parts[3] || '',
         location: parts[4] || '',
-        autoFuelCategory: parts[5] || 'Not observed',
-        autoTower: parts[6] || 'None',
-        teleopFuelCategory: parts[7] || 'Not observed',
-        navigation: parts[8] || 'Not observed',
-        teleopTower: parts[9] || 'None',
-        playedDefense: parts[10] === 'Y' ? 'Yes' : 'No',
-        defenseEffectiveness: parts[11] || 'Not applicable',
-        foulsObserved: parts[12] || 'None',
-        robotStatus: parts[13] || 'Worked full match',
-        consistencyRating: parts[14] || 'Reliable',
-        notes: parts.slice(15).join('|') || '',
+        // v2.2.0 added startPosition at index 5; detect old format by count
+        startPosition: parts.length > 16 ? (parts[5] || 'Not recorded') : 'Not recorded',
+        autoFuelCategory: parts[parts.length > 16 ? 6 : 5] || 'Not observed',
+        autoTower: parts[parts.length > 16 ? 7 : 6] || 'None',
+        teleopFuelCategory: parts[parts.length > 16 ? 8 : 7] || 'Not observed',
+        navigation: parts[parts.length > 16 ? 9 : 8] || 'Not observed',
+        teleopTower: parts[parts.length > 16 ? 10 : 9] || 'None',
+        playedDefense: parts[parts.length > 16 ? 11 : 10] === 'Y' ? 'Yes' : 'No',
+        defenseEffectiveness: parts[parts.length > 16 ? 12 : 11] || 'Not applicable',
+        foulsObserved: parts[parts.length > 16 ? 13 : 12] || 'None',
+        robotStatus: parts[parts.length > 16 ? 14 : 13] || 'Worked full match',
+        consistencyRating: parts[parts.length > 16 ? 15 : 14] || 'Reliable',
+        notes: parts.slice(parts.length > 16 ? 16 : 15).join('|') || '',
         timestamp: new Date().toISOString(),
         id: Date.now() + Math.random()
     };
@@ -865,7 +988,6 @@ async function openTransferModal() {
     if (matches.length === 0 && pitScouts.length === 0) { showNotification('No data to transfer yet', 'warning'); return; }
 
     const csvData = generateCSV();
-    const hasBluetooth = !!navigator.bluetooth;
     const hasNativeShare = !!navigator.share;
 
     isModalOpen = true;
@@ -878,18 +1000,18 @@ async function openTransferModal() {
             <h2 style="color: #DAA520; font-size: 28px;">Transfer Data</h2>
             <p style="font-size: 18px;"><strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong>${pitScouts.length > 0 ? `, <strong>${pitScouts.length} pit scout${pitScouts.length !== 1 ? 's' : ''}</strong>` : ''} ready</p>
 
-            <div style="margin: 18px 0 8px; color: #DAA520; font-size: 16px; font-weight: bold; border-bottom: 1px solid #DAA520; padding-bottom: 6px;">📶 Online Transfer</div>
-            <div class="share-buttons" style="margin-bottom: 12px;">
-                <button class="share-btn copy" onclick="copyImportLink()">📋 Copy Import Link</button>
-                ${hasNativeShare ? '<button class="share-btn native" onclick="shareNative()">📤 Native Share</button>' : ''}
-            </div>
-
-            <div style="margin: 18px 0 8px; color: #DAA520; font-size: 16px; font-weight: bold; border-bottom: 1px solid #DAA520; padding-bottom: 6px;">📴 Offline Transfer (No WiFi)</div>
+            <div style="margin: 18px 0 8px; color: #DAA520; font-size: 16px; font-weight: bold; border-bottom: 1px solid #DAA520; padding-bottom: 6px;">📤 Share (Device-to-Device)</div>
             <div class="share-buttons" style="margin-bottom: 12px;">
                 <button class="share-btn qr" onclick="showQRForOffline()">📱 QR Code</button>
-                <button class="share-btn" onclick="shareViaBluetooth()">🔵 Bluetooth</button>
-                <button class="share-btn download" onclick="downloadCSV()">💾 Download CSV</button>
+                <button class="share-btn" onclick="shareViaBluetooth()">🔵 Bluetooth / AirDrop</button>
+            </div>
+
+            <div style="margin: 18px 0 8px; color: #DAA520; font-size: 16px; font-weight: bold; border-bottom: 1px solid #DAA520; padding-bottom: 6px;">💾 Export (Save Data)</div>
+            <div class="share-buttons" style="margin-bottom: 12px;">
+                <button class="share-btn" onclick="emailCSV()">📧 Email CSV</button>
+                <button class="share-btn download" onclick="downloadCSV()">💾 Save CSV File</button>
                 <button class="share-btn copy" onclick="copyCSV()">📋 Copy CSV</button>
+                ${hasNativeShare ? '<button class="share-btn native" onclick="shareNative()">📤 Share via App</button>' : ''}
             </div>
 
             <div style="margin: 18px 0 8px; color: #DAA520; font-size: 16px; font-weight: bold; border-bottom: 1px solid #DAA520; padding-bottom: 6px;">⚠️ Data Management</div>
@@ -910,6 +1032,15 @@ async function openTransferModal() {
     document.body.appendChild(modal);
     window.currentModal = modal;
     modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+}
+
+function emailCSV() {
+    const csvData = window.currentCSV || generateCSV();
+    const matches = getLocalMatches();
+    const subject = encodeURIComponent(`Team 7712 Scouting Data - ${matches.length} matches - ${new Date().toISOString().split('T')[0]}`);
+    const body = encodeURIComponent(`Team 7712 ACCN-Umoja Scouting Data\n${matches.length} matches\n\n${csvData}`);
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_self');
+    showNotification('Opening email client...', 'info');
 }
 
 function shareViaBluetooth() {
