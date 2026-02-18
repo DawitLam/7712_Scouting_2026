@@ -15,6 +15,15 @@
         <link rel="stylesheet" href="/styles.css?v=20251216">
         <!-- Prefer CDN for QR generation for now (falls back to local vendor if available) -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+        <script src="/vendor/jsqr.js"></script>
+        <script>
+            // If local jsqr fails, load from CDN
+            if (typeof jsQR === 'undefined') {
+                var s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+                document.head.appendChild(s);
+            }
+        </script>
         <script>
             // If CDN fails to load, the local vendor file will be used as fallback
             window.addEventListener('error', (e) => {
@@ -35,7 +44,7 @@
             <img id="teamLogo" src="./team7712_logo_reefscape.png?v=20251205" alt="Team 7712 Logo" class="logo">
             <h1>Team 7712 ACCN-Umoja</h1>
             <div class="subtitle">FRC 2026 Scouting - REBUILT</div>
-            <div style="margin-top:6px; font-size:12px; color:#ccc;">Build v2.4.0</div>
+            <div style="margin-top:6px; font-size:12px; color:#ccc;">Build v2.5.0</div>
         </div>
 
         <!-- Home Page -->
@@ -110,6 +119,7 @@
                     <select id="autoFuelCategory" name="autoFuelCategory">
                         <option value="None" selected>None</option>
                         <option value="All preload scored">All preload scored</option>
+                        <option value="Some preload scored">Some preload scored</option>
                         <option value="All preload missed">All preload missed</option>
                         <option value="Added more fuel">Collected &amp; scored extra FUEL</option>
                     </select>
@@ -137,10 +147,10 @@
                     <label for="shootingStyle">Shooting Style</label>
                     <select id="shootingStyle" name="shootingStyle">
                         <option value="Not observed" selected>Not observed</option>
-                        <option value="Shoot while moving">Shoot while moving</option>
-                        <option value="Stop and shoot">Stop and shoot</option>
-                        <option value="Shoot from far">Shoot from far</option>
-                        <option value="Shoot close to HUB">Shoot close to the HUB</option>
+                        <option value="Mostly shoots while moving">Mostly shoots while moving</option>
+                        <option value="Mostly stops and shoots">Mostly stops and shoots</option>
+                        <option value="Mostly shoots from far">Mostly shoots from far</option>
+                        <option value="Mostly shoots close to HUB">Mostly shoots close to HUB</option>
                     </select>
                 </div>
                 <div class="form-group">

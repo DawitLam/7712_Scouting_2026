@@ -1,5 +1,5 @@
 // Service Worker for Team 7712 Scouting App
-const CACHE_NAME = 'team-7712-scouting-v2.5.0';
+const CACHE_NAME = 'team-7712-scouting-v2.5.1';
 const urlsToCache = [
     './',
     '/index.html',
@@ -11,6 +11,7 @@ const urlsToCache = [
     '/team7712_logo_reefscape.png',
     '/team7712_logo_reefscape.png?v=20251205',
     '/vendor/qrcode.min.js',
+    '/vendor/jsqr.js',
 ];
 
 self.addEventListener('install', (event) => {
