@@ -427,17 +427,23 @@ function getLocalMatches() {
     try { return JSON.parse(localStorage.getItem(MATCHES_KEY) || '[]'); } catch { return []; }
 }
 
-// One-button malfunction — auto-fills status fields for a broken robot
-function markRobotMalfunction() {
-    document.getElementById('robotStatus').value = 'Disabled';
-    document.getElementById('consistencyRating').value = 'Unreliable';
-    document.getElementById('autoFuelCategory').value = 'None';
-    document.getElementById('teleopFuelCategory').value = 'None';
-    const autoTower = document.getElementById('autoTower');
-    if (autoTower) autoTower.value = 'None';
-    const teleopTower = document.getElementById('teleopTower');
-    if (teleopTower) teleopTower.value = 'None';
-    showNotification('Robot marked as malfunction — review & save', 'warning');
+// When robot status is Disabled or No show, disable scoring fields
+function handleRobotStatusChange(value) {
+    const disable = (value === 'Disabled' || value === 'No show');
+    const ids = ['autoFuelCategory','autoScoringMethod','autoTower','teleopFuelCategory','shootingStyle','navigation','teleopTower','playedDefense','defenseEffectiveness','consistencyRating'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.disabled = disable;
+            el.style.opacity = disable ? '0.4' : '1';
+        }
+    });
+    if (disable) {
+        // Auto-fill disabled values
+        const sets = {autoFuelCategory:'None',autoScoringMethod:'None',autoTower:'None',teleopFuelCategory:'None',shootingStyle:'Not observed',navigation:'Not observed',teleopTower:'None',playedDefense:'No',defenseEffectiveness:'Not applicable',consistencyRating:'Unreliable'};
+        Object.entries(sets).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val; });
+        showNotification('Robot disabled — scoring fields locked', 'warning');
+    }
 }
 
 // Pit Scout: Robot photo capture
@@ -550,9 +556,11 @@ function submitMatch(event) {
         alliance: formData.get('alliance'),
         scoutName: formData.get('scoutName'),
         startPosition: formData.get('startPosition') || 'Not recorded',
-        autoFuelCategory: formData.get('autoFuelCategory') || 'Not observed',
+        autoScoringMethod: formData.get('autoScoringMethod') || 'None',
+        autoFuelCategory: formData.get('autoFuelCategory') || 'None',
         autoTower: formData.get('autoTower') || 'None',
-        teleopFuelCategory: formData.get('teleopFuelCategory') || 'Not observed',
+        teleopFuelCategory: formData.get('teleopFuelCategory') || 'None',
+        shootingStyle: formData.get('shootingStyle') || 'Not observed',
         navigation: formData.get('navigation') || 'Not observed',
         teleopTower: formData.get('teleopTower') || 'None',
         playedDefense: formData.get('playedDefense') || 'No',
@@ -585,12 +593,15 @@ function submitPitScout(event) {
     const pitData = {
         teamNumber: parseInt(formData.get('pitTeamNumber')),
         scoutName: formData.get('pitScoutName'),
+        robotType: formData.get('robotType') || 'Not specified',
+        shooterType: formData.get('shooterType') || 'Not specified',
         robotDimension: formData.get('robotDimension') || '',
         robotWeight: formData.get('robotWeight') || '',
         drivetrainType: formData.get('drivetrainType') || 'Not specified',
         navigationCapability: formData.get('navigationCapability') || 'Not specified',
-        autoScore: formData.get('autoScore') || '',
         fuelCapacity: formData.get('fuelCapacity') || '',
+        robotCycleTime: formData.get('robotCycleTime') || 'Not specified',
+        autoScore: formData.get('autoScore') || '',
         climbCapability: formData.get('climbCapability') || 'Not specified',
         driverExperience: formData.get('driverExperience') || 'Not specified',
         pitNotes: formData.get('pitNotes') || '',
@@ -684,8 +695,8 @@ function loadData() {
             const multiScout = observations.length > 1;
             observations.forEach((match, idx) => {
         // Support both new (REBUILT) and old (REEFSCAPE) data formats
-                const autoFuelCategory = match.autoFuelCategory || (match.autoFuel !== undefined ? `${match.autoFuel} FUEL` : 'Not observed');
-                const teleopFuelCategory = match.teleopFuelCategory || (match.teleopFuel !== undefined ? `${match.teleopFuel} FUEL` : 'Not observed');
+                const autoFuelCategory = match.autoFuelCategory || 'None';
+                const teleopFuelCategory = match.teleopFuelCategory || 'None';
                 const autoTower = match.autoTower || 'None';
                 const teleopTower = match.teleopTower || 'None';
                 const navigation = match.navigation || 'Not observed';
@@ -698,11 +709,12 @@ function loadData() {
                         <div style="margin: 12px 0; font-size: 16px;"><strong>Alliance:</strong> ${match.alliance} | <strong>Scout:</strong> ${match.scoutName}</div>
                 ${match.location ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Location:</strong> ${match.location}</div>` : ''}
                 ${match.startPosition && match.startPosition !== 'Not recorded' ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Start:</strong> ${match.startPosition}</div>` : ''}
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> FUEL: ${autoFuelCategory}, Tower=${autoTower}</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> FUEL: ${teleopFuelCategory} | Nav: ${navigation}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> ${match.autoScoringMethod && match.autoScoringMethod !== 'None' ? match.autoScoringMethod + ' — ' : ''}FUEL: ${autoFuelCategory}, Tower: ${autoTower}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> FUEL: ${teleopFuelCategory}${match.shootingStyle && match.shootingStyle !== 'Not observed' ? ` (${match.shootingStyle})` : ''}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Navigation:</strong> ${navigation}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Defense:</strong> ${match.playedDefense === 'Yes' ? 'Yes' : 'No'}${match.defenseEffectiveness && match.defenseEffectiveness !== 'Not applicable' ? ` (${match.defenseEffectiveness})` : ''}</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Tower=${teleopTower}</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Performance:</strong> Fouls=${match.foulsObserved || 'None'}, Status=${match.robotStatus || 'Worked full match'}, Consistency=${match.consistencyRating || 'Reliable'}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Tower: ${teleopTower}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Status:</strong> ${match.robotStatus || 'Worked full match'} | <strong>Consistency:</strong> ${match.consistencyRating || 'Reliable'} | <strong>Fouls:</strong> ${match.foulsObserved || 'None'}</div>
                 ${match.humanPlayerTeam ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Human Player:</strong> Team ${match.humanPlayerTeam} — ${match.humanPlayerRating || 'Not observed'}</div>` : ''}
                 ${match.notes ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Notes:</strong> ${match.notes}</div>` : ''}
                     <div style="margin-top: 15px; font-size: 14px; color: #aaa;">Recorded: ${new Date(match.timestamp).toLocaleString()}</div>
@@ -723,7 +735,7 @@ function generateCSV() {
     
     // Match Data CSV
     if (matches.length > 0) {
-        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','StartPosition','AutoFuelCategory','AutoTower','TeleopFuelCategory','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','HumanPlayerTeam','HumanPlayerRating','Notes','Timestamp'];
+        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','StartPosition','AutoScoringMethod','AutoFuelResult','AutoTower','TeleopFuelScored','ShootingStyle','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','HumanPlayerTeam','HumanPlayerRating','Notes','Timestamp'];
         const matchRows = matches.map(m => {
             const safeNotes = (m.notes || '').replace(/"/g, '""');
             return [
@@ -734,9 +746,11 @@ function generateCSV() {
                 m.scoutName,
                 m.location || '',
                 m.startPosition || 'Not recorded',
-                m.autoFuelCategory || (m.autoFuel !== undefined ? `${m.autoFuel} FUEL` : 'Not observed'),
+                m.autoScoringMethod || 'None',
+                m.autoFuelCategory || 'None',
                 m.autoTower || 'None',
-                m.teleopFuelCategory || (m.teleopFuel !== undefined ? `${m.teleopFuel} FUEL` : 'Not observed'),
+                m.teleopFuelCategory || 'None',
+                m.shootingStyle || 'Not observed',
                 m.navigation || 'Not observed',
                 m.teleopTower || 'None',
                 m.playedDefense,
@@ -755,7 +769,7 @@ function generateCSV() {
     
     // Pit Scout Data CSV
     if (pitScouts.length > 0) {
-        const pitHeaders = ['Type','Team','Scout','Dimensions','Weight','Drivetrain','Navigation','AutoScore','FuelCapacity','ClimbCapability','DriverExperience','Notes','Timestamp'];
+        const pitHeaders = ['Type','Team','Scout','RobotType','ShooterType','Dimensions','Weight','Drivetrain','Navigation','FuelCapacity','CycleTime','AutoCapability','ClimbLevel','DriverExperience','Notes','Timestamp'];
         const pitRows = pitScouts.map(p => {
             const safeAutoScore = (p.autoScore || '').replace(/"/g, '""');
             const safePitNotes = (p.pitNotes || '').replace(/"/g, '""');
@@ -763,12 +777,15 @@ function generateCSV() {
                 'PitScout',
                 p.teamNumber,
                 p.scoutName,
+                p.robotType || 'Not specified',
+                p.shooterType || 'Not specified',
                 p.robotDimension || '',
                 p.robotWeight || '',
                 p.drivetrainType,
                 p.navigationCapability,
-                `"${safeAutoScore}"`,
                 p.fuelCapacity || '',
+                p.robotCycleTime || 'Not specified',
+                `"${safeAutoScore}"`,
                 p.climbCapability,
                 p.driverExperience,
                 `"${safePitNotes}"`,
@@ -868,7 +885,7 @@ function prefixForQR(csvText) { return `TEAM7712CSV\n${csvText}`; }
 
 function encodeMatchRecord(match) {
     const note = (match.notes || '').replace(/\|/g, ';').replace(/\n/g, ' ').substring(0, 120);
-    // REBUILT 2026 format: simplified fields with category-based FUEL scoring
+    // REBUILT 2026 v2.4 format
     return [
         match.matchNumber || 0,
         match.teamNumber || 0,
@@ -876,9 +893,11 @@ function encodeMatchRecord(match) {
         match.scoutName || '',
         match.location || '',
         match.startPosition || 'Not recorded',
-        match.autoFuelCategory || 'Not observed',
+        match.autoScoringMethod || 'None',
+        match.autoFuelCategory || 'None',
         match.autoTower || 'None',
-        match.teleopFuelCategory || 'Not observed',
+        match.teleopFuelCategory || 'None',
+        match.shootingStyle || 'Not observed',
         match.navigation || 'Not observed',
         match.teleopTower || 'None',
         (match.playedDefense === 'Yes' ? 'Y' : 'N'),
@@ -947,15 +966,45 @@ function decodeMatchesFromQR(qrText) {
 function decodeMatchLine(line) {
     const parts = line.split('|');
     // Format versions by field count:
-    // v2.0: 16 fields (no startPosition, no human player)
-    // v2.2: 17 fields (startPosition added at index 5)
-    // v2.3: 19 fields (humanPlayerTeam + humanPlayerRating added at indices 16-17, notes at 18)
+    // v2.0: 16 fields | v2.2: 17 fields | v2.3: 19 fields | v2.4: 21 fields (autoScoringMethod + shootingStyle added)
     if (parts.length < 15) return null;
     
-    // Determine format version by field count
-    const hasStartPos = parts.length >= 17; // v2.2+
-    const hasHumanPlayer = parts.length >= 19; // v2.3+
-    const o = hasStartPos ? 1 : 0; // offset for startPosition insertion
+    // v2.4 has 21+ fields (indices 0-20), v2.3 has 19, v2.2 has 17, v2.0 has 16
+    const v = parts.length >= 21 ? 4 : parts.length >= 19 ? 3 : parts.length >= 17 ? 2 : 0;
+    
+    if (v === 4) {
+        // v2.4 format: 0=match,1=team,2=alliance,3=scout,4=location,5=startPos,6=autoScoringMethod,7=autoFuel,8=autoTower,9=teleopFuel,10=shootingStyle,11=nav,12=teleopTower,13=defense,14=defenseEff,15=fouls,16=status,17=consistency,18=hpTeam,19=hpRating,20+=notes
+        return {
+            matchNumber: parseInt(parts[0], 10) || 0,
+            teamNumber: parseInt(parts[1], 10) || 0,
+            alliance: parts[2] === 'r' ? 'red' : 'blue',
+            scoutName: parts[3] || '',
+            location: parts[4] || '',
+            startPosition: parts[5] || 'Not recorded',
+            autoScoringMethod: parts[6] || 'None',
+            autoFuelCategory: parts[7] || 'None',
+            autoTower: parts[8] || 'None',
+            teleopFuelCategory: parts[9] || 'None',
+            shootingStyle: parts[10] || 'Not observed',
+            navigation: parts[11] || 'Not observed',
+            teleopTower: parts[12] || 'None',
+            playedDefense: parts[13] === 'Y' ? 'Yes' : 'No',
+            defenseEffectiveness: parts[14] || 'Not applicable',
+            foulsObserved: parts[15] || 'None',
+            robotStatus: parts[16] || 'Worked full match',
+            consistencyRating: parts[17] || 'Reliable',
+            humanPlayerTeam: parts[18] || '',
+            humanPlayerRating: parts[19] || 'Not observed',
+            notes: parts.slice(20).join('|') || '',
+            timestamp: new Date().toISOString(),
+            id: Date.now() + Math.random()
+        };
+    }
+    
+    // Legacy formats (v2.0-v2.3) — backward compatible
+    const hasStartPos = v >= 2;
+    const hasHumanPlayer = v >= 3;
+    const o = hasStartPos ? 1 : 0;
     
     return {
         matchNumber: parseInt(parts[0], 10) || 0,
@@ -964,9 +1013,11 @@ function decodeMatchLine(line) {
         scoutName: parts[3] || '',
         location: parts[4] || '',
         startPosition: hasStartPos ? (parts[5] || 'Not recorded') : 'Not recorded',
-        autoFuelCategory: parts[5 + o] || 'Not observed',
+        autoScoringMethod: '',
+        autoFuelCategory: parts[5 + o] || 'None',
         autoTower: parts[6 + o] || 'None',
-        teleopFuelCategory: parts[7 + o] || 'Not observed',
+        teleopFuelCategory: parts[7 + o] || 'None',
+        shootingStyle: '',
         navigation: parts[8 + o] || 'Not observed',
         teleopTower: parts[9 + o] || 'None',
         playedDefense: parts[10 + o] === 'Y' ? 'Yes' : 'No',
