@@ -430,7 +430,7 @@ function getLocalMatches() {
 // When robot status is Disabled or No show, disable scoring fields
 function handleRobotStatusChange(value) {
     const disable = (value === 'Disabled' || value === 'No show');
-    const ids = ['autoFuelCategory','autoScoringMethod','autoTower','teleopFuelCategory','shootingStyle','navigation','teleopTower','playedDefense','defenseEffectiveness','consistencyRating'];
+    const ids = ['autoFuelCategory','autoTower','teleopFuelCategory','shootingStyle','navigation','teleopTower','playedDefense','defenseEffectiveness','consistencyRating'];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -438,10 +438,16 @@ function handleRobotStatusChange(value) {
             el.style.opacity = disable ? '0.4' : '1';
         }
     });
+    // Also disable checkboxes
+    document.querySelectorAll('input[name="autoScoringMethod"]').forEach(cb => {
+        cb.disabled = disable;
+        cb.parentElement.style.opacity = disable ? '0.4' : '1';
+    });
     if (disable) {
         // Auto-fill disabled values
-        const sets = {autoFuelCategory:'None',autoScoringMethod:'None',autoTower:'None',teleopFuelCategory:'None',shootingStyle:'Not observed',navigation:'Not observed',teleopTower:'None',playedDefense:'No',defenseEffectiveness:'Not applicable',consistencyRating:'Unreliable'};
+        const sets = {autoFuelCategory:'None',autoTower:'None',teleopFuelCategory:'None',shootingStyle:'Not observed',navigation:'Not observed',teleopTower:'None',playedDefense:'No',defenseEffectiveness:'Not applicable',consistencyRating:'Unreliable'};
         Object.entries(sets).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val; });
+        document.querySelectorAll('input[name="autoScoringMethod"]').forEach(cb => cb.checked = false);
         showNotification('Robot disabled — scoring fields locked', 'warning');
     }
 }
@@ -556,7 +562,7 @@ function submitMatch(event) {
         alliance: formData.get('alliance'),
         scoutName: formData.get('scoutName'),
         startPosition: formData.get('startPosition') || 'Not recorded',
-        autoScoringMethod: formData.get('autoScoringMethod') || 'None',
+        autoScoringMethod: formData.getAll('autoScoringMethod').join(', ') || 'None',
         autoFuelCategory: formData.get('autoFuelCategory') || 'None',
         autoTower: formData.get('autoTower') || 'None',
         teleopFuelCategory: formData.get('teleopFuelCategory') || 'None',
@@ -1050,9 +1056,10 @@ function openExportModal() { openTransferModal(); }
 function openShareModal() { openTransferModal(); }
 
 async function openTransferModal() {
+    try {
     const matches = getLocalMatches();
     const pitScouts = getLocalPitScouts();
-    if (matches.length === 0 && pitScouts.length === 0) { showNotification('No data to transfer yet', 'warning'); return; }
+    if (matches.length === 0 && pitScouts.length === 0) { showNotification('No data to transfer yet — scout a match first!', 'warning'); return; }
 
     const csvData = generateCSV();
     const hasNativeShare = !!navigator.share;
@@ -1099,6 +1106,10 @@ async function openTransferModal() {
     document.body.appendChild(modal);
     window.currentModal = modal;
     modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+    } catch (err) {
+        console.error('Transfer modal error:', err);
+        showNotification('Transfer error: ' + err.message, 'error');
+    }
 }
 
 function emailCSV() {

@@ -379,6 +379,8 @@ h2, h3 {
     cursor: pointer;
     transition: all 0.3s ease;
     font-size: clamp(14px, 3vw, 16px);
+    background: #2d5a3d;
+    color: white;
 }
 
 .share-btn.copy { background: #DAA520; color: #1a472a; }

@@ -35,7 +35,7 @@
             <img id="teamLogo" src="./team7712_logo_reefscape.png?v=20251205" alt="Team 7712 Logo" class="logo">
             <h1>Team 7712 ACCN-Umoja</h1>
             <div class="subtitle">FRC 2026 Scouting - REBUILT</div>
-            <div style="margin-top:6px; font-size:12px; color:#ccc;">Build v2.3.0</div>
+            <div style="margin-top:6px; font-size:12px; color:#ccc;">Build v2.4.0</div>
         </div>
 
         <!-- Home Page -->
@@ -97,14 +97,13 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="autoScoringMethod">Auto Scoring Method</label>
-                    <select id="autoScoringMethod" name="autoScoringMethod">
-                        <option value="None" selected>None</option>
-                        <option value="Scored at spot">Scored at starting spot</option>
-                        <option value="Moved and shot">Moved and shot</option>
-                        <option value="Collected from station">Collected FUEL from Fuel Station</option>
-                        <option value="Collected from depot">Collected from Depot</option>
-                    </select>
+                    <label>Auto Scoring Method (select all that apply)</label>
+                    <div style="display: flex; flex-direction: column; gap: 10px; padding: 8px 0;">
+                        <label style="font-size: 16px; font-weight: normal;"><input type="checkbox" name="autoScoringMethod" value="Scored at spot" style="width: auto; margin-right: 8px;"> Scored at starting spot</label>
+                        <label style="font-size: 16px; font-weight: normal;"><input type="checkbox" name="autoScoringMethod" value="Moved and shot" style="width: auto; margin-right: 8px;"> Moved and shot</label>
+                        <label style="font-size: 16px; font-weight: normal;"><input type="checkbox" name="autoScoringMethod" value="Collected from station" style="width: auto; margin-right: 8px;"> Collected FUEL from Fuel Station</label>
+                        <label style="font-size: 16px; font-weight: normal;"><input type="checkbox" name="autoScoringMethod" value="Collected from depot" style="width: auto; margin-right: 8px;"> Collected from Depot</label>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Auto FUEL Result</label>
@@ -140,7 +139,7 @@
                         <option value="Not observed" selected>Not observed</option>
                         <option value="Shoot while moving">Shoot while moving</option>
                         <option value="Stop and shoot">Stop and shoot</option>
-                        <option value="Shoot from far">Shoot from far (outside TRENCH)</option>
+                        <option value="Shoot from far">Shoot from far</option>
                         <option value="Shoot close to HUB">Shoot close to the HUB</option>
                     </select>
                 </div>
@@ -358,8 +357,8 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="pitNotes">Notes</label>
-                    <textarea id="pitNotes" name="pitNotes" rows="4" placeholder="Strengths, weaknesses, special features..."></textarea>
+                    <label for="pitNotes">Team Strategy &amp; Notes</label>
+                    <textarea id="pitNotes" name="pitNotes" rows="4" placeholder="What is their match strategy? (e.g., offense focused, cycles FUEL to HUB, plays defense second half). Also note strengths, weaknesses, special features..."></textarea>
                 </div>
                 <button type="submit" class="btn success">Save Pit Scout</button>
             </form>
@@ -380,19 +379,15 @@
         <div id="collectorPage" class="page">
             <button class="back-btn" onclick="navigateBack()">Back</button>
             <h2>Collect Data (QR)</h2>
-            <p style="margin: 15px 0; color: #ccc; font-size: 16px;">
-                Import data from another device using QR codes:<br>
-                <strong>Works 100% offline — no internet needed.</strong>
-            </p>
             <div style="margin: 20px 0; text-align: center;">
-                <button class="btn success" style="font-size: 18px; padding: 20px 40px; width: 100%; margin-bottom: 12px;" onclick="startLiveCameraScan()">📷 Scan with Camera</button>
-                <button class="btn" style="font-size: 16px; padding: 14px 30px; width: 100%;" onclick="openImageQR()">🖼️ Scan QR From Image</button>
+                <button class="btn success" style="font-size: 18px; padding: 20px 40px; width: 100%;" onclick="startLiveCameraScan()">📷 Scan QR Code</button>
             </div>
             <div id="liveScanContainer" style="display:none; margin: 16px 0; text-align:center;">
                 <video id="scanVideo" autoplay playsinline style="width:100%; max-width:400px; border:3px solid #DAA520; border-radius:12px;"></video>
                 <p id="scanStatus" style="color:#DAA520; margin-top:8px;">Point camera at QR code...</p>
                 <button class="btn danger" style="margin-top:8px;" onclick="stopLiveCameraScan()">Stop Camera</button>
             </div>
+            <div id="scannedDataLog" style="margin-top:16px;"></div>
             <canvas id="qrCanvas" style="display:none"></canvas>
         </div>
     </div>
