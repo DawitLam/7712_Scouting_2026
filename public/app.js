@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 // Initial logo loading and cleanup
 window.addEventListener('DOMContentLoaded', function () {
@@ -490,6 +490,7 @@ function handleRobotPhoto(event) {
 // Live camera QR scanning
 let liveScanStream = null;
 let liveScanTimer = null;
+let scanProcessing = false; // debounce lock to prevent double-processing
 
 function startLiveCameraScan() {
     const container = document.getElementById('liveScanContainer');
@@ -511,6 +512,7 @@ function startLiveCameraScan() {
             const ctx = canvas.getContext('2d');
 
             liveScanTimer = setInterval(() => {
+                if (scanProcessing) return; // skip while processing previous scan
                 if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
@@ -521,18 +523,22 @@ function startLiveCameraScan() {
                 if (window.jsQR) {
                     const code = jsQR(imageData.data, canvas.width, canvas.height);
                     if (code && code.data) {
+                        scanProcessing = true;
                         status.textContent = 'QR found! Importing...';
                         const ok = handleScannedContent(code.data);
                         if (ok) { stopLiveCameraScan(); return; }
+                        scanProcessing = false;
                     }
                 } else if (barcodeDetector) {
+                    scanProcessing = true;
                     barcodeDetector.detect(canvas).then(detections => {
                         if (detections && detections.length) {
                             status.textContent = 'QR found! Importing...';
                             const ok = handleScannedContent(detections[0].rawValue || '');
-                            if (ok) stopLiveCameraScan();
+                            if (ok) { stopLiveCameraScan(); return; }
                         }
-                    }).catch(() => {});
+                        scanProcessing = false;
+                    }).catch(() => { scanProcessing = false; });
                 }
             }, 150);
         })
@@ -545,6 +551,7 @@ function startLiveCameraScan() {
 function stopLiveCameraScan() {
     if (liveScanTimer) { clearInterval(liveScanTimer); liveScanTimer = null; }
     if (liveScanStream) { liveScanStream.getTracks().forEach(t => t.stop()); liveScanStream = null; }
+    scanProcessing = false;
     const container = document.getElementById('liveScanContainer');
     if (container) container.style.display = 'none';
     const video = document.getElementById('scanVideo');
@@ -922,34 +929,13 @@ function buildQRPayload(lines, chunkIndex, totalChunks) {
 }
 
 function encodeMatchesForQRChunks(matches, maxChars = QR_MAX_PAYLOAD_CHARS) {
+    // One QR per match — cleaner for scouts and collectors
     if (!matches.length) return [];
-    const lines = matches.map(encodeMatchRecord);
-    const chunks = [];
-    let current = [];
-
-    const pushCurrent = () => {
-        if (current.length) {
-            chunks.push(current);
-            current = [];
-        }
-    };
-
-    lines.forEach(line => {
-        current.push(line);
-        const tentative = buildQRPayload(current, chunks.length + 1, chunks.length + 1);
-        if (tentative.length > maxChars) {
-            current.pop();
-            if (!current.length) {
-                throw new Error('Single match exceeds QR payload limit');
-            }
-            pushCurrent();
-            current.push(line);
-        }
+    const total = matches.length;
+    return matches.map((match, idx) => {
+        const line = encodeMatchRecord(match);
+        return buildQRPayload([line], idx + 1, total);
     });
-    pushCurrent();
-
-    const total = chunks.length || 1;
-    return chunks.map((chunkLines, idx) => buildQRPayload(chunkLines, idx + 1, total));
 }
 
 function decodeMatchesFromQR(qrText) {
@@ -1051,6 +1037,24 @@ function clearAllData() {
     showNotification('All scouting data has been cleared', 'success');
     closeModal();
     navigateToPage('homePage');
+}
+
+function deduplicateMatches() {
+    const matches = getLocalMatches();
+    const seen = new Set();
+    const unique = [];
+    matches.forEach(m => {
+        const key = `${m.matchNumber || 0}_${m.teamNumber || 0}_${(m.scoutName || '').trim().toLowerCase()}`;
+        if (!seen.has(key)) { seen.add(key); unique.push(m); }
+    });
+    const removed = matches.length - unique.length;
+    if (removed > 0) {
+        localStorage.setItem(MATCHES_KEY, JSON.stringify(unique));
+        showNotification(`Removed ${removed} duplicate${removed !== 1 ? 's' : ''}. ${unique.length} unique matches remain.`, 'success');
+        if (currentPage === 'dataPage') loadData();
+    } else {
+        showNotification('No duplicates found!', 'info');
+    }
 }
 
 function openExportModal() { openTransferModal(); }
@@ -1300,6 +1304,10 @@ async function showQRForOffline() {
         return;
     }
 
+    // Store matches reference for pager labels
+    window.currentQRMatches = matches;
+    const firstLabel = `Match ${matches[0].matchNumber} \u2014 Team ${matches[0].teamNumber}`;
+
     closeModal();
 
     setTimeout(() => {
@@ -1312,19 +1320,20 @@ async function showQRForOffline() {
         modal.className = 'share-modal';
         modal.innerHTML = `
             <div class="share-content">
-                <h2 style="color: #DAA520; font-size: 28px;">Offline QR Code</h2>
-                <p style="font-size: 18px;"><strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong> ready for offline sharing</p>
+                <h2 style="color: #DAA520; font-size: 28px;">Offline QR Codes</h2>
+                <p style="font-size: 18px;"><strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong> \u2014 one QR per match</p>
                 <div class="qr-container">
-                    <h3 style="color: #DAA520; font-size: 22px;">Preparing QR Code…</h3>
+                    <h3 style="color: #DAA520; font-size: 22px;">Preparing QR Code\u2026</h3>
                     <div id="qrcode" style="min-height: 320px; display: flex; align-items: center; justify-content: center;">
-                        <div style="color: #DAA520; font-size: 18px;">⏳ Rendering…</div>
+                        <div style="color: #DAA520; font-size: 18px;">\u23f3 Rendering\u2026</div>
                     </div>
-                    <p id="qrPager" style="margin-top: 12px; color: #ccc; font-size: 14px;">QR 1 of ${qrChunks.length}</p>
-                    <p id="qrInstructions" style="margin-top: 12px; color: #ccc; font-size: 14px;"></p>
+                    <p id="qrMatchLabel" style="margin-top: 8px; color: #DAA520; font-size: 16px; font-weight: bold;">${firstLabel}</p>
+                    <p id="qrPager" style="margin-top: 4px; color: #ccc; font-size: 14px;">QR 1 of ${qrChunks.length}</p>
+                    <p id="qrInstructions" style="margin-top: 8px; color: #ccc; font-size: 14px;"></p>
                 </div>
                 <div class="share-buttons">
-                    <button id="qrPrevBtn" class="share-btn" onclick="changeQRChunk(-1)" disabled>◀ Previous QR</button>
-                    <button id="qrNextBtn" class="share-btn" onclick="changeQRChunk(1)" ${qrChunks.length > 1 ? '' : 'disabled'}>Next QR ▶</button>
+                    <button id="qrPrevBtn" class="share-btn" onclick="changeQRChunk(-1)" disabled>\u25c0 Prev Match</button>
+                    <button id="qrNextBtn" class="share-btn" onclick="changeQRChunk(1)" ${qrChunks.length > 1 ? '' : 'disabled'}>Next Match \u25b6</button>
                     <button class="share-btn download" onclick="downloadQR()" disabled>Save QR Image</button>
                     <button class="share-btn close" onclick="closeModal()">Close</button>
                 </div>
@@ -1361,6 +1370,12 @@ async function renderOfflineQRChunk() {
     if (!qrContainer || !titleEl || !pagerEl || !downloadBtn) return;
 
     pagerEl.textContent = `QR ${currentQRChunkIndex + 1} of ${currentQRChunks.length}`;
+    // Update match label
+    const matchLabelEl = modal.querySelector('#qrMatchLabel');
+    if (matchLabelEl && window.currentQRMatches && window.currentQRMatches[currentQRChunkIndex]) {
+        const m = window.currentQRMatches[currentQRChunkIndex];
+        matchLabelEl.textContent = `Match ${m.matchNumber} — Team ${m.teamNumber}`;
+    }
     if (prevBtn) prevBtn.disabled = currentQRChunkIndex === 0;
     if (nextBtn) nextBtn.disabled = currentQRChunkIndex === currentQRChunks.length - 1;
     downloadBtn.disabled = true;
@@ -1394,8 +1409,8 @@ async function renderOfflineQRChunk() {
         img.src = qrUrl;
         titleEl.textContent = 'Scan to Import Data (Offline)';
         instructionsEl.textContent = currentQRChunks.length > 1
-            ? 'Scan each QR code in order (1 → ' + currentQRChunks.length + '). After scanning, choose “Add Data”.'
-            : 'Scan this QR with “Collect (QR)” → “Scan QR From Image” on another device.';
+            ? 'Each QR = one match. Collector scans each one.'
+            : 'Scan this QR with Collect (QR) on the collector device.';
         downloadBtn.disabled = false;
     } catch (error) {
         console.error('QR generation error:', error);
