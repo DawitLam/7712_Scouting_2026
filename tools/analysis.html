@@ -136,6 +136,15 @@
         .agree-bar { height: 6px; border-radius: 3px; background: #21262d; overflow: hidden; margin-top: 2px; }
         .agree-fill { height: 100%; border-radius: 3px; }
 
+        /* Scout agreement badges (per-match) */
+        .agree-badge { display: inline-block; padding: 2px 7px; border-radius: 8px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+        .agree-high { background: rgba(63,185,80,0.15); color: #3fb950; }
+        .agree-med  { background: rgba(218,165,32,0.15); color: #DAA520; }
+        .agree-low  { background: rgba(248,81,73,0.15); color: #f85149; }
+        tr.conflict-row td { background: rgba(248,81,73,0.06); }
+        tr.conflict-row:hover td { background: rgba(248,81,73,0.12); }
+        .conflict-fields { font-size: 10px; color: #f85149; margin-top: 2px; }
+
         .back-btn { display: inline-block; margin-bottom: 14px; cursor: pointer; color: #DAA520; font-size: 13px; font-weight: 600; border: none; background: none; }
         .back-btn:hover { text-decoration: underline; }
 
@@ -186,7 +195,7 @@
 
         <!-- Stats Bar -->
         <div class="stats-bar" id="statsBar" style="display:none;">
-            <div class="stat-card"><div class="label">Matches</div><div class="value" id="sM">0</div></div>
+            <div class="stat-card"><div class="label">Matches</div><div class="value" id="sM">0</div><div class="sub" id="sMd"></div></div>
             <div class="stat-card"><div class="label">Teams</div><div class="value" id="sT">0</div></div>
             <div class="stat-card"><div class="label">Pit Scouts</div><div class="value" id="sP">0</div></div>
             <div class="stat-card"><div class="label">Scouts</div><div class="value" id="sS">0</div></div>
@@ -295,6 +304,8 @@ var matchData = [];
 var pitData   = [];
 var teamStats = {};
 var scoutStats = {};
+var consensusData  = [];   // one record per (Match, Team) after majority-vote / median
+var matchAgreement = {};   // key "Match||Team" → { pct, scouts, conflicts, count }
 
 /* ================================================================
    CSV PARSER
@@ -387,16 +398,143 @@ function isWorking(m) {
 }
 
 /* ================================================================
+   MULTI-SCOUT CONSENSUS
+   Groups raw records by (Match, Team).  When multiple scouts
+   observed the same match-team pair we produce ONE consensus
+   record via majority-vote (categorical) / ordinal-median.
+   ================================================================ */
+
+var CONSENSUS_CAT_FIELDS = [
+    'StartPosition','AutoScoringMethod','AutoFuelResult','AutoTower',
+    'ShootingStyle','Navigation','TeleopTower','PlayedDefense',
+    'DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating',
+    'HumanPlayerRating'
+];
+var CONSENSUS_ORD_FIELDS = {
+    'TeleopFuelScored': ['<5','5-9','10-19','20+']
+};
+var ALL_CONSENSUS_FIELDS = CONSENSUS_CAT_FIELDS.concat(Object.keys(CONSENSUS_ORD_FIELDS));
+
+function buildConsensus() {
+    // 1. Group raw rows by (Match, Team)
+    var groups = {};
+    matchData.forEach(function(m) {
+        var key = (m.Match || '') + '||' + (m.Team || '');
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(m);
+    });
+
+    consensusData  = [];
+    matchAgreement = {};
+
+    Object.keys(groups).forEach(function(key) {
+        var records = groups[key];
+
+        // Single scout — pass through as-is
+        if (records.length === 1) {
+            consensusData.push(records[0]);
+            matchAgreement[key] = { pct: 100, scouts: [records[0].Scout || 'Unknown'], conflicts: [], count: 1 };
+            return;
+        }
+
+        // ── Multiple scouts: build consensus ──
+        var consensus = {};
+        consensus.Type    = 'Match';
+        consensus.Match   = records[0].Match;
+        consensus.Team    = records[0].Team;
+        consensus.Alliance        = majorityVote(records, 'Alliance');
+        consensus.Location        = records[0].Location;
+        consensus.Timestamp       = records[0].Timestamp;
+        consensus.HumanPlayerTeam = records[0].HumanPlayerTeam;
+        consensus.Scout = records.map(function(r) { return r.Scout || 'Unknown'; }).join(', ');
+        consensus.Notes = records.map(function(r) {
+            return r.Notes ? '(' + (r.Scout || '?') + ') ' + r.Notes : '';
+        }).filter(Boolean).join(' | ');
+
+        var agreedCount = 0;
+        var conflicts   = [];
+
+        // Categorical: majority vote
+        CONSENSUS_CAT_FIELDS.forEach(function(field) {
+            consensus[field] = majorityVote(records, field);
+            if (allAgree(records, field)) agreedCount++;
+            else conflicts.push(field);
+        });
+
+        // Ordinal: median
+        Object.keys(CONSENSUS_ORD_FIELDS).forEach(function(field) {
+            consensus[field] = ordinalMedian(records, field, CONSENSUS_ORD_FIELDS[field]);
+            if (allAgree(records, field)) agreedCount++;
+            else conflicts.push(field);
+        });
+
+        var agreePct = Math.round((agreedCount / ALL_CONSENSUS_FIELDS.length) * 100);
+        consensusData.push(consensus);
+        matchAgreement[key] = {
+            pct:       agreePct,
+            scouts:    records.map(function(r) { return r.Scout || 'Unknown'; }),
+            conflicts: conflicts,
+            count:     records.length
+        };
+    });
+}
+
+function majorityVote(records, field) {
+    var counts = {};
+    records.forEach(function(r) {
+        var v = (r[field] || '');
+        counts[v] = (counts[v] || 0) + 1;
+    });
+    var best = '', bestCount = 0;
+    Object.keys(counts).forEach(function(v) {
+        if (counts[v] > bestCount) { bestCount = counts[v]; best = v; }
+    });
+    return best;
+}
+
+function ordinalMedian(records, field, ordering) {
+    var indices = records.map(function(r) {
+        var v = (r[field] || '');
+        var idx = ordering.indexOf(v);
+        return idx >= 0 ? idx : 0;
+    });
+    indices.sort(function(a, b) { return a - b; });
+    return ordering[indices[Math.floor(indices.length / 2)]];
+}
+
+function allAgree(records, field) {
+    var first = (records[0][field] || '');
+    return records.every(function(r) { return (r[field] || '') === first; });
+}
+
+function agreeBadge(pct) {
+    var cls = pct >= 80 ? 'agree-high' : pct >= 60 ? 'agree-med' : 'agree-low';
+    return '<span class="agree-badge ' + cls + '">' + pct + '%</span>';
+}
+
+/* ================================================================
    COMPUTE TEAM STATS
    Includes: WCI, variance, trend, confidence, role fingerprint,
-   scout agreement
+   scout agreement.  Uses consensus records so each (Match,Team)
+   counts once regardless of how many scouts filed a record.
    ================================================================ */
 
 function computeStats() {
+    buildConsensus();
     teamStats = {};
     scoutStats = {};
 
+    // ── Global scout tracking from RAW data ──
     matchData.forEach(function(m) {
+        var scout = m.Scout || 'Unknown';
+        if (!scoutStats[scout]) scoutStats[scout] = { name: scout, matches: 0, teams: {}, ratings: [] };
+        scoutStats[scout].matches++;
+        scoutStats[scout].teams[m.Team] = true;
+        scoutStats[scout].ratings.push(pointsAuto(m) + pointsTeleop(m) + pointsEndgame(m));
+    });
+
+    // ── Team stats from CONSENSUS records (one per match-team) ──
+    consensusData.forEach(function(m) {
         var t = m.Team;
         if (!t) return;
         if (!teamStats[t]) {
@@ -407,8 +545,8 @@ function computeStats() {
                 working: 0, foulsMinor: 0, foulsMajor: 0,
                 defenseGames: 0, defenseGood: 0,
                 scouts: {},
-                // Scout agreement tracking: scouts who scouted this team
-                scoutRatings: {} // scoutName -> [total scores]
+                scoutRatings: {},
+                agreementArr: []   // per-match scout agreement %
             };
         }
         var s = teamStats[t];
@@ -427,16 +565,22 @@ function computeStats() {
             s.defenseGames++;
             if ((m.DefenseEffectiveness || '').indexOf('Effective') !== -1) s.defenseGood++;
         }
+        // Per-match agreement
+        var key = (m.Match || '') + '||' + (m.Team || '');
+        var agr = matchAgreement[key];
+        if (agr) s.agreementArr.push(agr.pct);
+    });
+
+    // ── Scout ratings per team from RAW data (for cross-scout agreement) ──
+    matchData.forEach(function(m) {
+        var t = m.Team;
+        if (!t || !teamStats[t]) return;
+        var s = teamStats[t];
         var scout = m.Scout || 'Unknown';
+        var total = pointsAuto(m) + pointsTeleop(m) + pointsEndgame(m);
         s.scouts[scout] = (s.scouts[scout] || 0) + 1;
         if (!s.scoutRatings[scout]) s.scoutRatings[scout] = [];
         s.scoutRatings[scout].push(total);
-
-        // Global scout tracking
-        if (!scoutStats[scout]) scoutStats[scout] = { name: scout, matches: 0, teams: {}, ratings: [] };
-        scoutStats[scout].matches++;
-        scoutStats[scout].teams[t] = true;
-        scoutStats[scout].ratings.push(total);
     });
 
     // Compute WCI (EMA), variance, trend, confidence, role for each team
@@ -576,7 +720,10 @@ function updateUI() {
     var teams = Object.keys(teamStats);
     document.getElementById('statsBar').style.display = 'flex';
     document.getElementById('tabsBar').style.display  = 'flex';
-    document.getElementById('sM').textContent = matchData.length;
+    document.getElementById('sM').textContent = consensusData.length;
+    document.getElementById('sMd').textContent = matchData.length !== consensusData.length
+        ? matchData.length + ' raw records → ' + consensusData.length + ' consensus'
+        : 'one scout per match';
     document.getElementById('sT').textContent = teams.length;
     document.getElementById('sP').textContent = pitData.length;
     var allScouts = {};
@@ -747,14 +894,28 @@ function showTeamDetail(team) {
         if (pit.Notes) h += '<div class="notes-box"><strong>Strategy:</strong> ' + esc(pit.Notes) + '</div>';
     }
 
-    // Match history
-    h += '<h3 style="margin-top:16px;">Match History</h3>';
-    h += '<table><thead><tr><th>Match</th><th>Alliance</th><th>Auto</th><th>Teleop</th><th>Endgame</th><th>Total</th><th>Defense</th><th>Status</th><th>Scout</th><th>Notes</th></tr></thead><tbody>';
+    // Match history — flag conflict matches
+    var hasConflicts = s.agreementArr.some(function(p) { return p < 80; });
+    h += '<h3 style="margin-top:16px;">Match History';
+    if (hasConflicts) h += ' <span style="font-size:12px;color:#f85149;">&#9888; scout conflicts detected</span>';
+    h += '</h3>';
+    h += '<table><thead><tr><th>Match</th><th>Alliance</th><th>Agreement</th><th>Auto</th><th>Teleop</th><th>Endgame</th><th>Total</th><th>Defense</th><th>Status</th><th>Scout(s)</th><th>Notes</th></tr></thead><tbody>';
     s.matches.forEach(function(m, i) {
         var ok = isWorking(m), total = s.autoArr[i] + s.teleopArr[i] + s.endgameArr[i];
-        h += '<tr>';
+        var key = (m.Match || '') + '||' + (m.Team || '');
+        var agr = matchAgreement[key];
+        var isConflict = agr && agr.count > 1 && agr.pct < 80;
+        h += '<tr' + (isConflict ? ' class="conflict-row"' : '') + '>';
         h += '<td>' + (m.Match || '?') + '</td>';
         h += '<td style="color:' + (m.Alliance === 'red' ? '#f85149' : '#58a6ff') + '">' + (m.Alliance || '') + '</td>';
+        // Agreement column
+        if (agr && agr.count > 1) {
+            h += '<td>' + agreeBadge(agr.pct);
+            if (agr.conflicts.length) h += '<div class="conflict-fields" title="' + esc(agr.conflicts.join(', ')) + '">&#9888; ' + agr.conflicts.length + ' field' + (agr.conflicts.length > 1 ? 's' : '') + '</div>';
+            h += '</td>';
+        } else {
+            h += '<td style="color:#484f58;font-size:11px;">1 scout</td>';
+        }
         h += '<td>' + s.autoArr[i].toFixed(1) + '</td>';
         h += '<td>' + s.teleopArr[i].toFixed(1) + '</td>';
         h += '<td>' + s.endgameArr[i].toFixed(1) + '</td>';
@@ -914,14 +1075,27 @@ function radarCompareSVG(teams) {
 function renderMatches() {
     var q = document.getElementById('mSearch').value.trim().toLowerCase();
     var ft = document.getElementById('mFilter').value;
-    var data = matchData.slice();
+    var data = consensusData.slice();
     if (ft) data = data.filter(function(m) { return m.Team === ft; });
     if (q) data = data.filter(function(m) { return m.Team.indexOf(q) !== -1 || (m.Scout || '').toLowerCase().indexOf(q) !== -1; });
-    var h = '<table><thead><tr><th>Match</th><th>Team</th><th>Alliance</th><th>Scout</th><th>Auto</th><th>Teleop Fuel</th><th>Shooting</th><th>Climb</th><th>Defense</th><th>Status</th><th>Consistency</th><th>Notes</th></tr></thead><tbody>';
+    var h = '<table><thead><tr><th>Match</th><th>Team</th><th>Alliance</th><th>Scout(s)</th><th>Agreement</th><th>Auto</th><th>Teleop Fuel</th><th>Shooting</th><th>Climb</th><th>Defense</th><th>Status</th><th>Consistency</th><th>Notes</th></tr></thead><tbody>';
     data.forEach(function(m) {
-        h += '<tr><td>' + (m.Match || '') + '</td><td><strong>' + (m.Team || '') + '</strong></td>';
+        var key = (m.Match || '') + '||' + (m.Team || '');
+        var agr = matchAgreement[key];
+        var isConflict = agr && agr.count > 1 && agr.pct < 80;
+        h += '<tr' + (isConflict ? ' class="conflict-row"' : '') + '>';
+        h += '<td>' + (m.Match || '') + '</td><td><strong>' + (m.Team || '') + '</strong></td>';
         h += '<td style="color:' + (m.Alliance === 'red' ? '#f85149' : '#58a6ff') + '">' + (m.Alliance || '') + '</td>';
-        h += '<td>' + (m.Scout || '') + '</td><td>' + (m.AutoFuelResult || 'None') + '</td><td>' + (m.TeleopFuelScored || 'None') + '</td>';
+        h += '<td>' + (m.Scout || '') + '</td>';
+        // Scout Agreement column
+        if (agr && agr.count > 1) {
+            h += '<td>' + agreeBadge(agr.pct);
+            if (agr.conflicts.length) h += '<div class="conflict-fields">&#9888; ' + agr.conflicts.join(', ') + '</div>';
+            h += '</td>';
+        } else {
+            h += '<td style="color:#484f58;font-size:11px;">1 scout</td>';
+        }
+        h += '<td>' + (m.AutoFuelResult || 'None') + '</td><td>' + (m.TeleopFuelScored || 'None') + '</td>';
         h += '<td>' + (m.ShootingStyle || '') + '</td><td>' + (m.TeleopTower || 'None') + '</td>';
         h += '<td>' + (m.PlayedDefense === 'Yes' ? (m.DefenseEffectiveness || 'Yes') : 'No') + '</td>';
         h += '<td>' + (m.RobotStatus || '') + '</td><td>' + (m.ConsistencyRating || '') + '</td>';
