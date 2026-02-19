@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team 7712 &mdash; Scouting Analysis</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0d1117; color: #e6edf3; min-height: 100vh; }
+
+        .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px 32px; border-bottom: 3px solid #DAA520; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .header h1 { font-size: 22px; color: #DAA520; }
+        .header .subtitle { font-size: 13px; color: #8b949e; margin-top: 4px; }
+        .header .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: 8px; }
+        .header .badge-gold { background: rgba(218,165,32,0.2); color: #DAA520; }
+
+        .container { max-width: 1440px; margin: 0 auto; padding: 24px; }
+
+        /* Import */
+        .import-zone { border: 3px dashed #30363d; border-radius: 16px; padding: 48px; text-align: center; margin-bottom: 24px; transition: 0.2s; }
+        .import-zone:hover, .import-zone.dragover { border-color: #DAA520; background: rgba(218,165,32,0.05); }
+        .import-zone h2 { color: #DAA520; margin-bottom: 12px; }
+        .import-zone p { color: #8b949e; margin-bottom: 16px; }
+        .import-zone input[type="file"] { display: none; }
+        .import-zone .btn { display: inline-block; padding: 12px 32px; background: #DAA520; color: #000; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; }
+        .import-zone .btn:hover { background: #c4961a; }
+        .paste-area { width: 100%; max-width: 600px; margin: 12px auto 0; }
+        .paste-area textarea { width: 100%; height: 60px; background: #161b22; border: 1px solid #30363d; color: #e6edf3; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 13px; resize: vertical; }
+        .paste-area button { margin-top: 8px; padding: 8px 20px; background: #238636; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+
+        /* Stats bar */
+        .stats-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 14px 20px; min-width: 110px; flex: 1; }
+        .stat-card .label { font-size: 10px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-card .value { font-size: 26px; font-weight: 700; color: #DAA520; margin-top: 2px; }
+        .stat-card .sub { font-size: 10px; color: #484f58; margin-top: 2px; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 2px; margin-bottom: 20px; border-bottom: 2px solid #21262d; overflow-x: auto; }
+        .tab { padding: 10px 16px; background: transparent; border: none; color: #8b949e; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; }
+        .tab:hover { color: #e6edf3; }
+        .tab.active { color: #DAA520; border-bottom-color: #DAA520; font-weight: 600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; background: #161b22; border-radius: 12px; overflow: hidden; font-size: 13px; }
+        thead { background: #1c2128; }
+        th { padding: 10px 12px; text-align: left; font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #30363d; cursor: pointer; white-space: nowrap; user-select: none; }
+        th:hover { color: #DAA520; }
+        td { padding: 8px 12px; border-bottom: 1px solid #21262d; }
+        tr:hover td { background: rgba(218,165,32,0.05); }
+
+        /* Percentile coloring */
+        .pct-top1  { color: #58a6ff; font-weight: 700; }
+        .pct-top10 { color: #3fb950; font-weight: 600; }
+        .pct-top25 { color: #a3d977; }
+        .pct-mid   { color: #e6edf3; }
+        .pct-bot25 { color: #f0883e; }
+        .pct-bot10 { color: #f85149; }
+
+        /* Tier badge */
+        .tier { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+        .tier-s { background: rgba(88,166,255,0.15); color: #58a6ff; }
+        .tier-a { background: rgba(63,185,80,0.15); color: #3fb950; }
+        .tier-b { background: rgba(163,217,119,0.1); color: #a3d977; }
+        .tier-c { background: rgba(139,148,158,0.15); color: #8b949e; }
+        .tier-d { background: rgba(248,81,73,0.15); color: #f85149; }
+
+        /* Confidence badge */
+        .conf { display: inline-block; padding: 2px 7px; border-radius: 8px; font-size: 10px; font-weight: 600; }
+        .conf-high { background: rgba(63,185,80,0.15); color: #3fb950; }
+        .conf-med  { background: rgba(218,165,32,0.15); color: #DAA520; }
+        .conf-low  { background: rgba(248,81,73,0.15); color: #f85149; }
+
+        /* Role badge */
+        .role { display: inline-block; padding: 2px 7px; border-radius: 8px; font-size: 10px; font-weight: 600; background: rgba(139,148,158,0.15); color: #8b949e; }
+        .role-scorer   { background: rgba(218,165,32,0.15); color: #DAA520; }
+        .role-defender  { background: rgba(248,81,73,0.15); color: #f85149; }
+        .role-allround  { background: rgba(88,166,255,0.15); color: #58a6ff; }
+        .role-autospec  { background: rgba(63,185,80,0.15); color: #3fb950; }
+        .role-climber   { background: rgba(163,217,119,0.15); color: #a3d977; }
+
+        /* Cards */
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+        .card h3 { color: #DAA520; font-size: 18px; margin-bottom: 12px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+        .field .lbl { font-size: 10px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.3px; }
+        .field .val { font-size: 14px; color: #e6edf3; margin-top: 1px; }
+        .notes-box { margin-top: 10px; padding: 10px; background: #0d1117; border-radius: 8px; font-size: 12px; color: #8b949e; white-space: pre-wrap; }
+
+        /* WCI bars */
+        .wci-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+        .wci-label { width: 60px; font-size: 11px; color: #8b949e; text-align: right; flex-shrink: 0; }
+        .wci-track { flex: 1; height: 18px; background: #21262d; border-radius: 3px; overflow: hidden; position: relative; }
+        .wci-fill { height: 100%; border-radius: 3px; display: flex; align-items: center; padding-left: 6px; font-size: 10px; font-weight: 700; color: #000; transition: width 0.4s; min-width: 20px; }
+
+        /* Toolbar */
+        .toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+        .toolbar input, .toolbar select { padding: 7px 12px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 8px; font-size: 13px; }
+        .toolbar input { min-width: 170px; }
+        .toolbar select { min-width: 120px; }
+        .btn-sm { padding: 7px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+        .btn-green { background: #238636; color: #fff; }
+        .btn-green:hover { background: #2ea043; }
+        .btn-gray { background: #30363d; color: #e6edf3; }
+        .btn-gray:hover { background: #484f58; }
+        .btn-gold { background: #DAA520; color: #000; }
+        .btn-gold:hover { background: #c4961a; }
+
+        /* Compare */
+        .compare-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .compare-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 18px; }
+        .compare-card h4 { color: #DAA520; font-size: 16px; margin-bottom: 10px; }
+        .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #21262d; font-size: 13px; }
+        .stat-row .lbl { color: #8b949e; }
+        .stat-row .val { font-weight: 600; }
+
+        /* Prediction */
+        .predict-zone { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 20px; }
+        .predict-alliance { flex: 1; min-width: 250px; background: #161b22; border-radius: 12px; padding: 16px; }
+        .predict-alliance h4 { margin-bottom: 10px; font-size: 16px; }
+        .predict-alliance.red h4 { color: #f85149; }
+        .predict-alliance.blue h4 { color: #58a6ff; }
+        .predict-alliance select { width: 100%; margin-bottom: 8px; }
+        .predict-result { text-align: center; padding: 20px; background: #161b22; border: 2px solid #DAA520; border-radius: 12px; }
+        .predict-result h3 { color: #DAA520; font-size: 20px; margin-bottom: 8px; }
+        .predict-pct { font-size: 40px; font-weight: 800; }
+        .predict-score { font-size: 18px; color: #8b949e; margin-top: 4px; }
+
+        /* Trend chart (big) */
+        .trend-chart { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 16px; margin-top: 12px; }
+        .trend-chart h4 { color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+
+        /* Scout agreement bar */
+        .agree-bar { height: 6px; border-radius: 3px; background: #21262d; overflow: hidden; margin-top: 2px; }
+        .agree-fill { height: 100%; border-radius: 3px; }
+
+        .back-btn { display: inline-block; margin-bottom: 14px; cursor: pointer; color: #DAA520; font-size: 13px; font-weight: 600; border: none; background: none; }
+        .back-btn:hover { text-decoration: underline; }
+
+        /* Print */
+        @media print {
+            body { background: #fff; color: #000; font-size: 11px; }
+            .header { background: #fff; border-bottom-color: #000; }
+            .header h1, .header .subtitle { color: #000; }
+            .import-zone, .tabs, .btn-sm, .toolbar, .paste-area { display: none !important; }
+            .stat-card { border-color: #ccc; }
+            .stat-card .value { color: #000; }
+            table { border: 1px solid #ccc; font-size: 10px; }
+            thead { background: #f0f0f0; }
+            th, td { color: #000; padding: 4px 6px; }
+            .card { border-color: #ccc; page-break-inside: avoid; padding: 12px; }
+            .card h3 { color: #000; }
+            .tab-content { display: block !important; page-break-before: always; }
+        }
+
+        .empty { text-align: center; padding: 50px 20px; color: #484f58; }
+        .empty h3 { font-size: 18px; margin-bottom: 6px; }
+
+        .tooltip { position: relative; cursor: help; border-bottom: 1px dotted #484f58; }
+        .tooltip:hover::after { content: attr(data-tip); position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); background: #30363d; color: #e6edf3; padding: 6px 10px; border-radius: 6px; font-size: 11px; white-space: nowrap; z-index: 10; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>&#127942; Team 7712 ACCN-Umoja &mdash; Scouting Analysis</h1>
+            <div class="subtitle">REBUILT 2026 &middot; WCI Metrics (Weighted Contribution Index) &middot; Import CSV to begin
+                <span class="badge badge-gold">v1.0</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Import Zone -->
+        <div class="import-zone" id="importZone">
+            <h2>&#128202; Import Scouting Data</h2>
+            <p>Drop your CSV file here, click to browse, or paste below</p>
+            <label class="btn">Choose CSV File<input type="file" id="fileInput" accept=".csv,.txt"></label>
+            <div class="paste-area">
+                <textarea id="pasteArea" placeholder="Paste CSV data here..."></textarea>
+                <button onclick="importFromPaste()">Import Pasted Data</button>
+            </div>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar" id="statsBar" style="display:none;">
+            <div class="stat-card"><div class="label">Matches</div><div class="value" id="sM">0</div></div>
+            <div class="stat-card"><div class="label">Teams</div><div class="value" id="sT">0</div></div>
+            <div class="stat-card"><div class="label">Pit Scouts</div><div class="value" id="sP">0</div></div>
+            <div class="stat-card"><div class="label">Scouts</div><div class="value" id="sS">0</div></div>
+            <div class="stat-card"><div class="label">Avg WCI</div><div class="value" id="sA">0</div><div class="sub" id="sAd">weighted contribution index</div></div>
+            <div class="stat-card"><div class="label">Data Quality</div><div class="value" id="sDQ">-</div><div class="sub" id="sDQd">scout agreement</div></div>
+        </div>
+
+        <!-- Tab Bar -->
+        <div class="tabs" id="tabsBar" style="display:none;">
+            <button class="tab active" data-tab="wci">WCI Rankings</button>
+            <button class="tab" data-tab="matches">Match Log</button>
+            <button class="tab" data-tab="pits">Pit Scouts</button>
+            <button class="tab" data-tab="compare">Compare</button>
+            <button class="tab" data-tab="predict">Match Predictor</button>
+            <button class="tab" data-tab="picklist">Pick List</button>
+            <button class="tab" data-tab="scouts">Scout Report</button>
+        </div>
+
+        <!-- WCI Rankings Tab -->
+        <div class="tab-content active" id="tab-wci">
+            <div class="toolbar">
+                <input type="text" id="wciSearch" placeholder="Search team..." oninput="renderWCI()">
+                <select id="wciSort" onchange="renderWCI()">
+                    <option value="total">Total WCI</option>
+                    <option value="auto">Auto WCI</option>
+                    <option value="teleop">Teleop WCI</option>
+                    <option value="endgame">Endgame WCI</option>
+                    <option value="consistency">Consistency</option>
+                    <option value="variance">Variance (low=good)</option>
+                    <option value="trend">Trend</option>
+                    <option value="confidence">Confidence</option>
+                </select>
+                <button class="btn-sm btn-gray" onclick="window.print()">Print</button>
+            </div>
+            <div id="wciContent"></div>
+        </div>
+
+        <!-- Match Log Tab -->
+        <div class="tab-content" id="tab-matches">
+            <div class="toolbar">
+                <input type="text" id="mSearch" placeholder="Filter team or scout..." oninput="renderMatches()">
+                <select id="mFilter" onchange="renderMatches()"><option value="">All Teams</option></select>
+            </div>
+            <div id="matchContent"></div>
+        </div>
+
+        <!-- Pit Scouts Tab -->
+        <div class="tab-content" id="tab-pits"><div id="pitContent"></div></div>
+
+        <!-- Compare Tab -->
+        <div class="tab-content" id="tab-compare">
+            <div class="toolbar">
+                <select id="cmp1"><option value="">Team 1</option></select>
+                <span style="color:#8b949e;">vs</span>
+                <select id="cmp2"><option value="">Team 2</option></select>
+                <span style="color:#8b949e;">vs</span>
+                <select id="cmp3"><option value="">Team 3 (opt)</option></select>
+                <button class="btn-sm btn-green" onclick="renderCompare()">Compare</button>
+            </div>
+            <div id="cmpContent"></div>
+        </div>
+
+        <!-- Match Predictor Tab -->
+        <div class="tab-content" id="tab-predict">
+            <p style="color:#8b949e; margin-bottom:16px;">Select teams for each alliance to predict the match outcome using WCI-based scoring.</p>
+            <div class="predict-zone">
+                <div class="predict-alliance red">
+                    <h4>Red Alliance</h4>
+                    <select id="red1"><option value="">Team 1</option></select>
+                    <select id="red2"><option value="">Team 2</option></select>
+                    <select id="red3"><option value="">Team 3</option></select>
+                </div>
+                <div class="predict-alliance blue">
+                    <h4>Blue Alliance</h4>
+                    <select id="blue1"><option value="">Team 1</option></select>
+                    <select id="blue2"><option value="">Team 2</option></select>
+                    <select id="blue3"><option value="">Team 3</option></select>
+                </div>
+            </div>
+            <div style="text-align:center; margin-bottom:16px;">
+                <button class="btn-sm btn-gold" onclick="runPrediction()" style="font-size:16px; padding:12px 32px;">Predict Match</button>
+            </div>
+            <div id="predictResult"></div>
+        </div>
+
+        <!-- Pick List Tab -->
+        <div class="tab-content" id="tab-picklist">
+            <p style="color:#8b949e; margin-bottom:16px;">Alliance selection helper. Teams ranked by overall value &mdash; combining WCI output, consistency, confidence, and role fit.</p>
+            <div id="pickContent"></div>
+        </div>
+
+        <!-- Scout Report Tab -->
+        <div class="tab-content" id="tab-scouts">
+            <p style="color:#8b949e; margin-bottom:16px;">Scout reliability report. Shows how well scouts agree when scouting the same team, and flags potential data quality issues.</p>
+            <div id="scoutContent"></div>
+        </div>
+    </div>
+
+<script>
+'use strict';
+
+/* ================================================================
+   DATA STORE
+   ================================================================ */
+var matchData = [];
+var pitData   = [];
+var teamStats = {};
+var scoutStats = {};
+
+/* ================================================================
+   CSV PARSER
+   ================================================================ */
+function parseCSV(text) {
+    matchData = []; pitData = [];
+    var sections = text.trim().split(/\n\s*\n/);
+    sections.forEach(function(sec) {
+        var lines = sec.trim().split('\n').filter(function(l) { return l.trim(); });
+        if (lines.length < 2) return;
+        var headers = csvLine(lines[0]);
+        for (var i = 1; i < lines.length; i++) {
+            var vals = csvLine(lines[i]);
+            var row = {};
+            headers.forEach(function(h, idx) { row[h] = (vals[idx] || '').trim(); });
+            if (row.Type === 'Match') matchData.push(row);
+            else if (row.Type === 'PitScout') pitData.push(row);
+        }
+    });
+}
+function csvLine(line) {
+    var r = [], cur = '', inQ = false;
+    for (var i = 0; i < line.length; i++) {
+        var c = line[i];
+        if (inQ) { if (c === '"' && line[i+1] === '"') { cur += '"'; i++; } else if (c === '"') inQ = false; else cur += c; }
+        else { if (c === '"') inQ = true; else if (c === ',') { r.push(cur); cur = ''; } else cur += c; }
+    }
+    r.push(cur); return r;
+}
+
+/* ================================================================
+   WCI POINT SCORING
+   Weighted Contribution Index — our own metric.
+   Converts qualitative scouting data into estimated point
+   contributions per game phase.
+   ================================================================ */
+
+function pointsAuto(m) {
+    var pts = 0;
+    var method = (m.AutoScoringMethod || '');
+    if (method.indexOf('Both goals') !== -1) pts += 4;
+    else if (method.indexOf('High goal') !== -1) pts += 3;
+    else if (method.indexOf('Low goal') !== -1) pts += 1.5;
+    var fuel = (m.AutoFuelResult || 'None');
+    if (fuel.indexOf('All scored') !== -1) pts += 5;
+    else if (fuel.indexOf('Most scored') !== -1) pts += 3.5;
+    else if (fuel.indexOf('Some') !== -1) pts += 2;
+    else if (fuel !== 'None' && fuel !== 'Missed') pts += 1;
+    if ((m.AutoTower || '').indexOf('Retrieved') !== -1) pts += 1;
+    if (method !== 'None' && method !== '') pts += 1;
+    return pts;
+}
+function pointsTeleop(m) {
+    var fuel = (m.TeleopFuelScored || 'None'), pts = 0;
+    if (fuel.indexOf('20+') !== -1) pts = 10;
+    else if (fuel.indexOf('10-19') !== -1 || fuel.indexOf('10-') !== -1) pts = 7;
+    else if (fuel.indexOf('5-9') !== -1) pts = 4;
+    else if (fuel.indexOf('<5') !== -1 || fuel.indexOf('Less') !== -1) pts = 2;
+    var style = (m.ShootingStyle || '');
+    if (style.toLowerCase().indexOf('high') !== -1) pts *= 1.15;
+    if ((m.Navigation || '').indexOf('Both') !== -1) pts += 0.5;
+    return pts;
+}
+function pointsEndgame(m) {
+    var tower = (m.TeleopTower || 'None');
+    if (tower.indexOf('Level 3') !== -1 || tower.indexOf('High') !== -1) return 6;
+    if (tower.indexOf('Level 2') !== -1 || tower.indexOf('Mid') !== -1) return 4;
+    if (tower.indexOf('Level 1') !== -1 || tower.indexOf('Low') !== -1) return 2;
+    return 0;
+}
+function pointsDefense(m) {
+    if (m.PlayedDefense !== 'Yes') return 0;
+    var eff = (m.DefenseEffectiveness || '');
+    if (eff.indexOf('Very effective') !== -1) return 3;
+    if (eff.indexOf('Effective') !== -1) return 2;
+    if (eff.indexOf('Somewhat') !== -1) return 1;
+    return 0.5;
+}
+function consistencyScore(m) {
+    var c = (m.ConsistencyRating || '');
+    if (c.indexOf('Very consistent') !== -1 || c === 'Reliable') return 1.0;
+    if (c.indexOf('Mostly') !== -1 || c === 'Mostly reliable') return 0.75;
+    if (c.indexOf('Inconsistent') !== -1 && c.indexOf('Very') === -1) return 0.4;
+    if (c.indexOf('Very inconsistent') !== -1 || c.indexOf('Very unreliable') !== -1) return 0.15;
+    return 0.5;
+}
+function isWorking(m) {
+    var s = (m.RobotStatus || '');
+    return s.indexOf('Disabled') === -1 && s.indexOf('No show') === -1 && s.indexOf('Did not') === -1;
+}
+
+/* ================================================================
+   COMPUTE TEAM STATS
+   Includes: WCI, variance, trend, confidence, role fingerprint,
+   scout agreement
+   ================================================================ */
+
+function computeStats() {
+    teamStats = {};
+    scoutStats = {};
+
+    matchData.forEach(function(m) {
+        var t = m.Team;
+        if (!t) return;
+        if (!teamStats[t]) {
+            teamStats[t] = {
+                team: t, matches: [], n: 0,
+                autoArr: [], teleopArr: [], endgameArr: [], totalArr: [],
+                defenseArr: [], consistArr: [],
+                working: 0, foulsMinor: 0, foulsMajor: 0,
+                defenseGames: 0, defenseGood: 0,
+                scouts: {},
+                // Scout agreement tracking: scouts who scouted this team
+                scoutRatings: {} // scoutName -> [total scores]
+            };
+        }
+        var s = teamStats[t];
+        s.matches.push(m);
+        s.n++;
+        var a = pointsAuto(m), tp = pointsTeleop(m), eg = pointsEndgame(m);
+        var total = a + tp + eg;
+        s.autoArr.push(a); s.teleopArr.push(tp); s.endgameArr.push(eg); s.totalArr.push(total);
+        s.defenseArr.push(pointsDefense(m));
+        s.consistArr.push(consistencyScore(m));
+        if (isWorking(m)) s.working++;
+        var foul = (m.FoulsObserved || 'None');
+        if (foul.indexOf('Major') !== -1) s.foulsMajor++;
+        else if (foul.indexOf('Minor') !== -1) s.foulsMinor++;
+        if (m.PlayedDefense === 'Yes') {
+            s.defenseGames++;
+            if ((m.DefenseEffectiveness || '').indexOf('Effective') !== -1) s.defenseGood++;
+        }
+        var scout = m.Scout || 'Unknown';
+        s.scouts[scout] = (s.scouts[scout] || 0) + 1;
+        if (!s.scoutRatings[scout]) s.scoutRatings[scout] = [];
+        s.scoutRatings[scout].push(total);
+
+        // Global scout tracking
+        if (!scoutStats[scout]) scoutStats[scout] = { name: scout, matches: 0, teams: {}, ratings: [] };
+        scoutStats[scout].matches++;
+        scoutStats[scout].teams[t] = true;
+        scoutStats[scout].ratings.push(total);
+    });
+
+    // Compute WCI (EMA), variance, trend, confidence, role for each team
+    var allTotals = [];
+    var keys = Object.keys(teamStats);
+    keys.forEach(function(t) {
+        var s = teamStats[t];
+        s.autoWCI    = ema(s.autoArr);
+        s.teleopWCI  = ema(s.teleopArr);
+        s.endgameWCI = ema(s.endgameArr);
+        s.totalWCI   = ema(s.totalArr);
+        s.defenseWCI = ema(s.defenseArr);
+        s.consistWCI = ema(s.consistArr);
+        s.reliability = s.n > 0 ? Math.round((s.working / s.n) * 100) : 0;
+
+        // ── Consistency Variance (σ) ──
+        // Lower = more predictable. A team scoring 5-5-5 is better pick than 1-5-9
+        s.variance = stdDev(s.totalArr);
+
+        // ── Trend: recent half vs early half ──
+        s.trend    = calcTrend(s.totalArr);
+        s.trendDir = s.trend > 0.5 ? 'up' : s.trend < -0.5 ? 'down' : 'flat';
+
+        // ── Confidence Rating ── (Bayesian-inspired)
+        // Based on sample size + scout diversity + variance
+        var scoutCount   = Object.keys(s.scouts).length;
+        var matchFactor  = Math.min(s.n / 8, 1.0);        // 8+ matches = full confidence from match count
+        var scoutFactor  = Math.min(scoutCount / 3, 1.0);  // 3+ scouts = full confidence from diversity
+        var varFactor    = 1 - Math.min(s.variance / 10, 0.5); // low variance boosts confidence
+        s.confidence     = (matchFactor * 0.45 + scoutFactor * 0.30 + varFactor * 0.25);
+        s.confLevel      = s.confidence >= 0.7 ? 'high' : s.confidence >= 0.4 ? 'med' : 'low';
+
+        // ── Scout Agreement Score ──
+        // When multiple scouts watched this team, how close are their averages?
+        s.scoutAgreement = calcScoutAgreement(s.scoutRatings);
+
+        // ── Role Fingerprint ──
+        s.role = detectRole(s);
+
+        // ── Combined value (for pick list) ──
+        s.value = s.totalWCI
+                + (s.defenseWCI * 0.5)
+                + (s.consistWCI * 2)
+                + ((s.reliability / 100) * 2)
+                - (s.variance * 0.3)        // penalize inconsistency
+                + (s.confidence * 1.5);     // reward data confidence
+        allTotals.push(s.totalWCI);
+    });
+
+    // Percentile + tier assignment
+    var sorted = allTotals.slice().sort(function(a, b) { return b - a; });
+    keys.forEach(function(t) {
+        var s    = teamStats[t];
+        var rank = sorted.indexOf(s.totalWCI);
+        var pct  = sorted.length > 1 ? rank / (sorted.length - 1) : 0.5;
+        s.percentile = Math.round((1 - pct) * 100);
+        s.pctClass = pct <= 0.01 ? 'pct-top1' : pct <= 0.10 ? 'pct-top10' : pct <= 0.25 ? 'pct-top25' : pct >= 0.90 ? 'pct-bot10' : pct >= 0.75 ? 'pct-bot25' : 'pct-mid';
+        s.tier = pct <= 0.05 ? 'S' : pct <= 0.20 ? 'A' : pct <= 0.50 ? 'B' : pct <= 0.80 ? 'C' : 'D';
+    });
+
+    // Compute per-scout agreement stats
+    Object.keys(scoutStats).forEach(function(name) {
+        var sc = scoutStats[name];
+        sc.avgRating = avg(sc.ratings);
+        sc.teamCount = Object.keys(sc.teams).length;
+    });
+}
+
+/** Exponential moving average — recent data weighted more */
+function ema(arr) {
+    if (!arr.length) return 0;
+    if (arr.length === 1) return arr[0];
+    var k = 0.3, val = arr[0];
+    for (var i = 1; i < arr.length; i++) val = val * (1 - k) + arr[i] * k;
+    return val;
+}
+
+/** Standard deviation */
+function stdDev(arr) {
+    if (arr.length < 2) return 0;
+    var mean = avg(arr);
+    var sumSq = arr.reduce(function(a, v) { return a + (v - mean) * (v - mean); }, 0);
+    return Math.sqrt(sumSq / arr.length);
+}
+
+function calcTrend(arr) {
+    if (arr.length < 4) return 0;
+    var half = Math.floor(arr.length / 2);
+    return avg(arr.slice(-half)) - avg(arr.slice(0, half));
+}
+
+function avg(arr) {
+    return arr.length ? arr.reduce(function(a, b) { return a + b; }, 0) / arr.length : 0;
+}
+
+/** Scout Agreement: when 2+ scouts watched the same team, how close are their avg ratings? */
+function calcScoutAgreement(scoutRatings) {
+    var scoutNames = Object.keys(scoutRatings);
+    if (scoutNames.length < 2) return null; // can't compute with single scout
+    var avgs = scoutNames.map(function(name) { return avg(scoutRatings[name]); });
+    var maxDiff = 0;
+    for (var i = 0; i < avgs.length; i++) {
+        for (var j = i + 1; j < avgs.length; j++) {
+            var d = Math.abs(avgs[i] - avgs[j]);
+            if (d > maxDiff) maxDiff = d;
+        }
+    }
+    // Convert to 0-100% scale. 0 diff = 100% agreement; 10+ diff = 0%
+    return Math.max(0, Math.round((1 - maxDiff / 10) * 100));
+}
+
+/** Role Fingerprint — auto-detect team's role from data patterns */
+function detectRole(s) {
+    var autoShare    = s.autoWCI / (s.totalWCI || 1);
+    var teleopShare  = s.teleopWCI / (s.totalWCI || 1);
+    var endgameShare = s.endgameWCI / (s.totalWCI || 1);
+    var defenseRate  = s.defenseGames / (s.n || 1);
+
+    // Defender: plays defense >40% of matches with decent effectiveness
+    if (defenseRate >= 0.4 && s.defenseGood >= 1) return { name: 'Defender', cls: 'role-defender', icon: '&#128737;' };
+    // Auto Specialist: auto is >45% of contribution, teleop below avg
+    if (autoShare >= 0.45 && s.teleopWCI < 4) return { name: 'Auto Spec', cls: 'role-autospec', icon: '&#9889;' };
+    // Climber: endgame is big part of contribution
+    if (endgameShare >= 0.35 && s.endgameWCI >= 3) return { name: 'Climber', cls: 'role-climber', icon: '&#11014;' };
+    // All-rounder: decent in all categories
+    if (s.autoWCI >= 3 && s.teleopWCI >= 4 && s.endgameWCI >= 2) return { name: 'All-Round', cls: 'role-allround', icon: '&#11088;' };
+    // Default: Scorer
+    return { name: 'Scorer', cls: 'role-scorer', icon: '&#127919;' };
+}
+
+/* ================================================================
+   UI UPDATE
+   ================================================================ */
+
+function updateUI() {
+    computeStats();
+    var teams = Object.keys(teamStats);
+    document.getElementById('statsBar').style.display = 'flex';
+    document.getElementById('tabsBar').style.display  = 'flex';
+    document.getElementById('sM').textContent = matchData.length;
+    document.getElementById('sT').textContent = teams.length;
+    document.getElementById('sP').textContent = pitData.length;
+    var allScouts = {};
+    matchData.forEach(function(m) { allScouts[m.Scout || 'Unknown'] = true; });
+    document.getElementById('sS').textContent = Object.keys(allScouts).length;
+    var avgW = teams.length > 0
+        ? (teams.reduce(function(a, t) { return a + teamStats[t].totalWCI; }, 0) / teams.length).toFixed(1) : '0';
+    document.getElementById('sA').textContent = avgW;
+    // Data quality: average scout agreement across teams with 2+ scouts
+    var agreeTeams = teams.filter(function(t) { return teamStats[t].scoutAgreement !== null; });
+    if (agreeTeams.length) {
+        var avgAgree = Math.round(agreeTeams.reduce(function(a, t) { return a + teamStats[t].scoutAgreement; }, 0) / agreeTeams.length);
+        document.getElementById('sDQ').textContent = avgAgree + '%';
+        document.getElementById('sDQd').textContent = agreeTeams.length + ' teams with 2+ scouts';
+    } else {
+        document.getElementById('sDQ').textContent = 'N/A';
+        document.getElementById('sDQd').textContent = 'need 2+ scouts/team';
+    }
+    populateDropdowns(teams);
+    renderWCI(); renderMatches(); renderPits(); renderPickList(); renderScoutReport();
+}
+
+function populateDropdowns(teams) {
+    var sorted = teams.slice().sort(function(a, b) { return parseInt(a) - parseInt(b); });
+    function fill(id, label) {
+        var el = document.getElementById(id);
+        el.innerHTML = '<option value="">' + label + '</option>';
+        sorted.forEach(function(t) { el.innerHTML += '<option value="' + t + '">Team ' + t + '</option>'; });
+    }
+    fill('mFilter', 'All Teams');
+    ['cmp1','cmp2','cmp3'].forEach(function(id, i) { fill(id, i < 2 ? 'Team ' + (i+1) : 'Team 3 (opt)'); });
+    ['red1','red2','red3','blue1','blue2','blue3'].forEach(function(id) { fill(id, 'Select...'); });
+}
+
+/* ================================================================
+   TAB: WCI RANKINGS
+   ================================================================ */
+
+function renderWCI() {
+    var q    = document.getElementById('wciSearch').value.trim();
+    var sort = document.getElementById('wciSort').value;
+    var teams = [];
+    Object.keys(teamStats).forEach(function(t) { teams.push(teamStats[t]); });
+    if (q) teams = teams.filter(function(s) { return s.team.indexOf(q) !== -1; });
+
+    var sortFns = {
+        total:      function(a, b) { return b.totalWCI - a.totalWCI; },
+        auto:       function(a, b) { return b.autoWCI - a.autoWCI; },
+        teleop:     function(a, b) { return b.teleopWCI - a.teleopWCI; },
+        endgame:    function(a, b) { return b.endgameWCI - a.endgameWCI; },
+        consistency:function(a, b) { return b.consistWCI - a.consistWCI; },
+        variance:   function(a, b) { return a.variance - b.variance; },
+        trend:      function(a, b) { return b.trend - a.trend; },
+        confidence: function(a, b) { return b.confidence - a.confidence; }
+    };
+    teams.sort(sortFns[sort] || sortFns.total);
+    var maxT = 1;
+    teams.forEach(function(s) { if (s.totalWCI > maxT) maxT = s.totalWCI; });
+
+    var h = '<table><thead><tr>';
+    h += '<th>#</th><th>Team</th><th>Tier</th><th>Role</th>';
+    h += '<th class="tooltip" data-tip="Weighted Contribution Index — our composite scoring metric">Total WCI</th>';
+    h += '<th>Auto</th><th>Teleop</th><th>Endgame</th>';
+    h += '<th class="tooltip" data-tip="Standard deviation — lower = more predictable">&#963; Var</th>';
+    h += '<th class="tooltip" data-tip="How confident we are in this data (match count + scout diversity)">Conf</th>';
+    h += '<th>Trend</th><th>N</th>';
+    h += '</tr></thead><tbody>';
+
+    teams.forEach(function(s, i) {
+        var tIcon = s.trendDir === 'up' ? '<span class="trend-up">&#9650;</span>' : s.trendDir === 'down' ? '<span class="trend-down">&#9660;</span>' : '<span class="trend-flat">&mdash;</span>';
+        var pctW = Math.max((s.totalWCI / maxT * 100), 5).toFixed(0);
+
+        h += '<tr onclick="showTeamDetail(\'' + s.team + '\')" style="cursor:pointer">';
+        h += '<td>' + (i + 1) + '</td>';
+        h += '<td><strong class="' + s.pctClass + '">' + s.team + '</strong></td>';
+        h += '<td>' + tierBadge(s.tier) + '</td>';
+        h += '<td><span class="role ' + s.role.cls + '">' + s.role.icon + ' ' + s.role.name + '</span></td>';
+        h += '<td><div class="wci-bar"><div class="wci-track"><div class="wci-fill" style="width:' + pctW + '%;background:' + tierColor(s.tier) + '">' + s.totalWCI.toFixed(1) + '</div></div></div></td>';
+        h += '<td>' + s.autoWCI.toFixed(1) + '</td>';
+        h += '<td>' + s.teleopWCI.toFixed(1) + '</td>';
+        h += '<td>' + s.endgameWCI.toFixed(1) + '</td>';
+        h += '<td style="color:' + (s.variance <= 2 ? '#3fb950' : s.variance <= 4 ? '#DAA520' : '#f85149') + '">' + s.variance.toFixed(1) + '</td>';
+        h += '<td>' + confBadge(s.confLevel) + '</td>';
+        h += '<td>' + tIcon + ' ' + (s.trend >= 0 ? '+' : '') + s.trend.toFixed(1) + '</td>';
+        h += '<td>' + s.n + '</td>';
+        h += '</tr>';
+    });
+    h += '</tbody></table>';
+    if (!teams.length) h = '<div class="empty"><h3>No teams found</h3></div>';
+    document.getElementById('wciContent').innerHTML = h;
+}
+
+/* ── Helpers ── */
+function tierBadge(t) { return '<span class="tier tier-' + t.toLowerCase() + '">' + t + '</span>'; }
+function tierColor(t) { return {S:'#58a6ff',A:'#3fb950',B:'#a3d977',C:'#8b949e',D:'#f85149'}[t] || '#8b949e'; }
+function confBadge(level) {
+    var map = { high: ['HIGH','conf-high'], med: ['MED','conf-med'], low: ['LOW','conf-low'] };
+    var m = map[level] || map.low;
+    return '<span class="conf ' + m[1] + '">' + m[0] + '</span>';
+}
+function fld(l, v) { return '<div class="field"><div class="lbl">' + l + '</div><div class="val">' + v + '</div></div>'; }
+function esc(s) { return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ── Team Detail Drill-Down ── */
+function showTeamDetail(team) {
+    var s = teamStats[team]; if (!s) return;
+    var pit = null;
+    for (var i = 0; i < pitData.length; i++) { if (pitData[i].Team === team) { pit = pitData[i]; break; } }
+
+    var h = '<button class="back-btn" onclick="renderWCI()">&larr; Back to rankings</button>';
+    h += '<div class="card">';
+    h += '<h3>Team ' + team + ' ' + tierBadge(s.tier) + ' <span class="role ' + s.role.cls + '">' + s.role.icon + ' ' + s.role.name + '</span> ' + confBadge(s.confLevel) + '</h3>';
+
+    // WCI component bars
+    var mx = Math.max(s.autoWCI, s.teleopWCI, s.endgameWCI, 1);
+    h += '<div style="max-width:420px; margin-bottom:14px;">';
+    h += wciBarHTML('Auto', s.autoWCI, mx, '#58a6ff');
+    h += wciBarHTML('Teleop', s.teleopWCI, mx, '#3fb950');
+    h += wciBarHTML('Endgame', s.endgameWCI, mx, '#DAA520');
+    if (s.defenseGames > 0) h += wciBarHTML('Defense', s.defenseWCI, 3, '#f85149');
+    h += '<div style="font-size:15px; margin-top:6px; color:#DAA520; font-weight:700;">Total WCI: ' + s.totalWCI.toFixed(1) + ' pts</div>';
+    h += '</div>';
+
+    h += '<div class="grid">';
+    h += fld('Matches', s.n);
+    h += fld('Reliability', s.reliability + '%');
+    h += fld('Consistency', (s.consistWCI * 100).toFixed(0) + '%');
+    h += fld('Variance (&#963;)', s.variance.toFixed(1));
+    h += fld('Confidence', (s.confidence * 100).toFixed(0) + '% (' + s.confLevel + ')');
+    h += fld('Scout Agreement', s.scoutAgreement !== null ? s.scoutAgreement + '%' : 'N/A (1 scout)');
+    h += fld('Defense', s.defenseGames + '/' + s.n + ' games');
+    h += fld('Fouls', s.foulsMinor + ' minor, ' + s.foulsMajor + ' major');
+    h += fld('Scouts', Object.keys(s.scouts).join(', '));
+    h += '</div>';
+
+    // Large trend chart
+    h += '<div class="trend-chart">';
+    h += '<h4>PERFORMANCE TREND (WCI by match)</h4>';
+    h += trendChartSVG(s.totalArr, s.autoArr, s.teleopArr, s.endgameArr, 600, 120);
+    h += '</div>';
+
+    // Radar chart
+    h += '<div style="margin-top:14px;">';
+    h += '<strong style="color:#8b949e; font-size:12px;">ROLE FINGERPRINT</strong>';
+    h += radarSVG([
+        { label: 'Auto', value: s.autoWCI, max: 12 },
+        { label: 'Teleop', value: s.teleopWCI, max: 12 },
+        { label: 'Endgame', value: s.endgameWCI, max: 6 },
+        { label: 'Consist.', value: s.consistWCI * 10, max: 10 },
+        { label: 'Defense', value: s.defenseWCI * 3, max: 10 },
+        { label: 'Reliab.', value: s.reliability / 10, max: 10 }
+    ], tierColor(s.tier));
+    h += '</div>';
+
+    // Pit scout
+    if (pit) {
+        h += '<h3 style="margin-top:16px;">Pit Scout</h3><div class="grid">';
+        h += fld('Robot Type', pit.RobotType || 'N/A');
+        h += fld('Shooter', pit.ShooterType || 'N/A');
+        h += fld('Drivetrain', pit.Drivetrain || 'N/A');
+        h += fld('Dimensions', pit.Dimensions || 'N/A');
+        h += fld('Weight', pit.Weight ? pit.Weight + ' lbs' : 'N/A');
+        h += fld('Cycle Time', pit.CycleTime || 'N/A');
+        h += fld('Climb', pit.ClimbLevel || 'N/A');
+        h += fld('Driver Exp', pit.DriverExperience || 'N/A');
+        h += '</div>';
+        if (pit.AutoCapability) h += '<div class="notes-box"><strong>Auto:</strong> ' + esc(pit.AutoCapability) + '</div>';
+        if (pit.Notes) h += '<div class="notes-box"><strong>Strategy:</strong> ' + esc(pit.Notes) + '</div>';
+    }
+
+    // Match history
+    h += '<h3 style="margin-top:16px;">Match History</h3>';
+    h += '<table><thead><tr><th>Match</th><th>Alliance</th><th>Auto</th><th>Teleop</th><th>Endgame</th><th>Total</th><th>Defense</th><th>Status</th><th>Scout</th><th>Notes</th></tr></thead><tbody>';
+    s.matches.forEach(function(m, i) {
+        var ok = isWorking(m), total = s.autoArr[i] + s.teleopArr[i] + s.endgameArr[i];
+        h += '<tr>';
+        h += '<td>' + (m.Match || '?') + '</td>';
+        h += '<td style="color:' + (m.Alliance === 'red' ? '#f85149' : '#58a6ff') + '">' + (m.Alliance || '') + '</td>';
+        h += '<td>' + s.autoArr[i].toFixed(1) + '</td>';
+        h += '<td>' + s.teleopArr[i].toFixed(1) + '</td>';
+        h += '<td>' + s.endgameArr[i].toFixed(1) + '</td>';
+        h += '<td><strong>' + total.toFixed(1) + '</strong></td>';
+        h += '<td>' + (m.PlayedDefense === 'Yes' ? (m.DefenseEffectiveness || 'Yes') : '&mdash;') + '</td>';
+        h += '<td style="color:' + (ok ? '#3fb950' : '#f85149') + '">' + (m.RobotStatus || 'OK') + '</td>';
+        h += '<td>' + (m.Scout || '') + '</td>';
+        h += '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(m.Notes || '') + '">' + (m.Notes || '') + '</td>';
+        h += '</tr>';
+    });
+    h += '</tbody></table></div>';
+
+    document.getElementById('wciContent').innerHTML = h;
+    document.getElementById('wciContent').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function wciBarHTML(label, val, max, color) {
+    var pctW = Math.max((val / max * 100), 5).toFixed(0);
+    return '<div class="wci-bar"><span class="wci-label">' + label + '</span><div class="wci-track"><div class="wci-fill" style="width:' + pctW + '%;background:' + color + '">' + val.toFixed(1) + '</div></div></div>';
+}
+
+/* ── SVG Trend Chart (multi-line: total, auto, teleop, endgame) ── */
+function trendChartSVG(total, autoA, teleopA, endgameA, w, h) {
+    if (total.length < 2) return '<p style="color:#484f58;font-size:12px;">Need 2+ matches for trend chart</p>';
+    var pad = 40, gw = w - pad - 10, gh = h - 30;
+    var allVals = total.concat(autoA, teleopA, endgameA);
+    var mx = Math.max.apply(null, allVals) || 1;
+    var mn = 0;
+    var range = mx - mn || 1;
+    var n = total.length;
+
+    function toXY(arr) {
+        return arr.map(function(v, i) {
+            var x = pad + (i / (n - 1)) * gw;
+            var y = h - 15 - ((v - mn) / range) * gh;
+            return x.toFixed(1) + ',' + y.toFixed(1);
+        }).join(' ');
+    }
+
+    var svg = '<svg width="' + w + '" height="' + h + '" style="display:block;">';
+
+    // Grid lines
+    for (var g = 0; g <= 4; g++) {
+        var gy = h - 15 - (g / 4) * gh;
+        var gv = (mn + (g / 4) * range).toFixed(0);
+        svg += '<line x1="' + pad + '" y1="' + gy.toFixed(1) + '" x2="' + (w - 10) + '" y2="' + gy.toFixed(1) + '" stroke="#21262d" stroke-width="1" />';
+        svg += '<text x="' + (pad - 4) + '" y="' + (gy + 3).toFixed(1) + '" text-anchor="end" font-size="9" fill="#484f58">' + gv + '</text>';
+    }
+
+    // X-axis match labels
+    for (var i = 0; i < n; i++) {
+        var x = pad + (i / (n - 1)) * gw;
+        svg += '<text x="' + x.toFixed(1) + '" y="' + h + '" text-anchor="middle" font-size="9" fill="#484f58">M' + (i + 1) + '</text>';
+    }
+
+    // Lines
+    var lines = [
+        { arr: total,    color: '#DAA520', width: 2.5, label: 'Total' },
+        { arr: autoA,    color: '#58a6ff', width: 1.5, label: 'Auto' },
+        { arr: teleopA,  color: '#3fb950', width: 1.5, label: 'Teleop' },
+        { arr: endgameA, color: '#f0883e', width: 1.5, label: 'Endgame' }
+    ];
+    lines.forEach(function(line) {
+        svg += '<polyline points="' + toXY(line.arr) + '" fill="none" stroke="' + line.color + '" stroke-width="' + line.width + '" />';
+    });
+
+    // Dots on total line
+    total.forEach(function(v, i) {
+        var x = pad + (i / (n - 1)) * gw;
+        var y = h - 15 - ((v - mn) / range) * gh;
+        svg += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3" fill="' + (i === n - 1 ? '#DAA520' : '#484f58') + '" />';
+    });
+
+    // Legend
+    var lx = pad + 6;
+    lines.forEach(function(line, i) {
+        svg += '<line x1="' + lx + '" y1="' + (8 + i * 12) + '" x2="' + (lx + 14) + '" y2="' + (8 + i * 12) + '" stroke="' + line.color + '" stroke-width="2" />';
+        svg += '<text x="' + (lx + 18) + '" y="' + (11 + i * 12) + '" font-size="9" fill="' + line.color + '">' + line.label + '</text>';
+    });
+
+    svg += '</svg>';
+    return svg;
+}
+
+/* ── SVG Sparkline (small, for tables) ── */
+function sparklineSVG(data, w, h) {
+    if (data.length < 2) return '';
+    var mx = Math.max.apply(null, data), mn = Math.min.apply(null, data);
+    var range = mx - mn || 1;
+    var pts = data.map(function(v, i) {
+        return ((i / (data.length - 1)) * w).toFixed(1) + ',' + (h - ((v - mn) / range * (h - 6)) - 3).toFixed(1);
+    }).join(' ');
+    var circles = '';
+    data.forEach(function(v, i) {
+        var x = (i / (data.length - 1)) * w;
+        var y = h - ((v - mn) / range * (h - 6)) - 3;
+        circles += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="2.5" fill="' + (i === data.length - 1 ? '#DAA520' : '#484f58') + '" />';
+    });
+    return '<svg width="' + w + '" height="' + (h + 2) + '" style="display:block;margin-top:4px;"><polyline points="' + pts + '" fill="none" stroke="#DAA520" stroke-width="1.5" />' + circles + '</svg>';
+}
+
+/* ── SVG Radar Chart ── */
+function radarSVG(axes, fillColor) {
+    var size = 200, cx = size / 2, cy = size / 2, radius = size / 2 - 30, n = axes.length;
+    function polarXY(i, r) {
+        var angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+        return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+    }
+    var svg = '<svg width="' + size + '" height="' + size + '" style="margin-top:8px;">';
+    [0.25, 0.5, 0.75, 1.0].forEach(function(frac) {
+        var pts = [];
+        for (var i = 0; i < n; i++) { var p = polarXY(i, radius * frac); pts.push(p.x.toFixed(1) + ',' + p.y.toFixed(1)); }
+        svg += '<polygon points="' + pts.join(' ') + '" fill="none" stroke="#21262d" stroke-width="1" />';
+    });
+    for (var i = 0; i < n; i++) { var p = polarXY(i, radius); svg += '<line x1="' + cx + '" y1="' + cy + '" x2="' + p.x.toFixed(1) + '" y2="' + p.y.toFixed(1) + '" stroke="#30363d" stroke-width="1" />'; }
+    var dataPts = [];
+    for (var i = 0; i < n; i++) { var frac = Math.min(axes[i].value / axes[i].max, 1); var p = polarXY(i, radius * frac); dataPts.push(p.x.toFixed(1) + ',' + p.y.toFixed(1)); }
+    svg += '<polygon points="' + dataPts.join(' ') + '" fill="' + fillColor + '" fill-opacity="0.2" stroke="' + fillColor + '" stroke-width="2" />';
+    for (var i = 0; i < n; i++) {
+        var frac = Math.min(axes[i].value / axes[i].max, 1); var dp = polarXY(i, radius * frac);
+        svg += '<circle cx="' + dp.x.toFixed(1) + '" cy="' + dp.y.toFixed(1) + '" r="3" fill="' + fillColor + '" />';
+        var lp = polarXY(i, radius + 16);
+        svg += '<text x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="middle" font-size="10" fill="#8b949e">' + axes[i].label + '</text>';
+    }
+    svg += '</svg>';
+    return svg;
+}
+
+/* ── Radar overlay for Compare ── */
+function radarCompareSVG(teams) {
+    var size = 240, cx = size / 2, cy = size / 2, radius = size / 2 - 35;
+    var axesDef = [
+        { label: 'Auto', maxV: 12 }, { label: 'Teleop', maxV: 12 }, { label: 'Endgame', maxV: 6 },
+        { label: 'Consist.', maxV: 10 }, { label: 'Defense', maxV: 10 }, { label: 'Reliab.', maxV: 10 }
+    ];
+    var n = axesDef.length, colors = ['#DAA520', '#58a6ff', '#3fb950'];
+    function polarXY(i, r) { var angle = (Math.PI * 2 * i / n) - Math.PI / 2; return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) }; }
+    var svg = '<svg width="' + size + '" height="' + size + '" style="margin-top:8px;">';
+    [0.25, 0.5, 0.75, 1.0].forEach(function(frac) { var pts = []; for (var i = 0; i < n; i++) { var p = polarXY(i, radius * frac); pts.push(p.x.toFixed(1) + ',' + p.y.toFixed(1)); } svg += '<polygon points="' + pts.join(' ') + '" fill="none" stroke="#21262d" stroke-width="1" />'; });
+    for (var i = 0; i < n; i++) { var p = polarXY(i, radius); svg += '<line x1="' + cx + '" y1="' + cy + '" x2="' + p.x.toFixed(1) + '" y2="' + p.y.toFixed(1) + '" stroke="#30363d" stroke-width="1" />'; }
+    teams.forEach(function(s, ti) {
+        var color = colors[ti % colors.length];
+        var vals = [s.autoWCI, s.teleopWCI, s.endgameWCI, s.consistWCI * 10, s.defenseWCI * 3, s.reliability / 10];
+        var pts = [];
+        for (var i = 0; i < n; i++) { var frac = Math.min(vals[i] / axesDef[i].maxV, 1); var p = polarXY(i, radius * frac); pts.push(p.x.toFixed(1) + ',' + p.y.toFixed(1)); }
+        svg += '<polygon points="' + pts.join(' ') + '" fill="' + color + '" fill-opacity="0.15" stroke="' + color + '" stroke-width="2" />';
+    });
+    for (var i = 0; i < n; i++) { var lp = polarXY(i, radius + 18); svg += '<text x="' + lp.x.toFixed(1) + '" y="' + lp.y.toFixed(1) + '" text-anchor="middle" font-size="10" fill="#8b949e">' + axesDef[i].label + '</text>'; }
+    teams.forEach(function(s, ti) { svg += '<rect x="5" y="' + (5 + ti * 14) + '" width="10" height="10" fill="' + colors[ti % colors.length] + '" rx="2" />'; svg += '<text x="18" y="' + (13 + ti * 14) + '" font-size="10" fill="#e6edf3">' + s.team + '</text>'; });
+    svg += '</svg>';
+    return svg;
+}
+
+/* ================================================================
+   TAB: MATCH LOG
+   ================================================================ */
+function renderMatches() {
+    var q = document.getElementById('mSearch').value.trim().toLowerCase();
+    var ft = document.getElementById('mFilter').value;
+    var data = matchData.slice();
+    if (ft) data = data.filter(function(m) { return m.Team === ft; });
+    if (q) data = data.filter(function(m) { return m.Team.indexOf(q) !== -1 || (m.Scout || '').toLowerCase().indexOf(q) !== -1; });
+    var h = '<table><thead><tr><th>Match</th><th>Team</th><th>Alliance</th><th>Scout</th><th>Auto</th><th>Teleop Fuel</th><th>Shooting</th><th>Climb</th><th>Defense</th><th>Status</th><th>Consistency</th><th>Notes</th></tr></thead><tbody>';
+    data.forEach(function(m) {
+        h += '<tr><td>' + (m.Match || '') + '</td><td><strong>' + (m.Team || '') + '</strong></td>';
+        h += '<td style="color:' + (m.Alliance === 'red' ? '#f85149' : '#58a6ff') + '">' + (m.Alliance || '') + '</td>';
+        h += '<td>' + (m.Scout || '') + '</td><td>' + (m.AutoFuelResult || 'None') + '</td><td>' + (m.TeleopFuelScored || 'None') + '</td>';
+        h += '<td>' + (m.ShootingStyle || '') + '</td><td>' + (m.TeleopTower || 'None') + '</td>';
+        h += '<td>' + (m.PlayedDefense === 'Yes' ? (m.DefenseEffectiveness || 'Yes') : 'No') + '</td>';
+        h += '<td>' + (m.RobotStatus || '') + '</td><td>' + (m.ConsistencyRating || '') + '</td>';
+        h += '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(m.Notes || '') + '">' + (m.Notes || '') + '</td></tr>';
+    });
+    h += '</tbody></table>';
+    if (!data.length) h = '<div class="empty"><h3>No matches</h3></div>';
+    document.getElementById('matchContent').innerHTML = h;
+}
+
+/* ================================================================
+   TAB: PIT SCOUTS
+   ================================================================ */
+function renderPits() {
+    if (!pitData.length) { document.getElementById('pitContent').innerHTML = '<div class="empty"><h3>No pit scouts imported</h3></div>'; return; }
+    var h = '';
+    pitData.forEach(function(p) {
+        var s = teamStats[p.Team];
+        h += '<div class="card"><h3>Team ' + (p.Team || '?') + ' ' + (s ? tierBadge(s.tier) + ' <span class="role ' + s.role.cls + '">' + s.role.icon + ' ' + s.role.name + '</span>' : '') + '</h3>';
+        h += '<div class="grid">';
+        h += fld('Scouted By', p.Scout || 'N/A'); h += fld('Robot Type', p.RobotType || 'N/A');
+        h += fld('Shooter', p.ShooterType || 'N/A'); h += fld('Drivetrain', p.Drivetrain || 'N/A');
+        h += fld('Dimensions', p.Dimensions || 'N/A'); h += fld('Weight', p.Weight ? p.Weight + ' lbs' : 'N/A');
+        h += fld('Navigation', p.Navigation || 'N/A'); h += fld('Fuel Cap', p.FuelCapacity || 'N/A');
+        h += fld('Cycle Time', p.CycleTime || 'N/A'); h += fld('Climb', p.ClimbLevel || 'N/A');
+        h += fld('Driver Exp', p.DriverExperience || 'N/A');
+        if (s) { h += fld('Total WCI', s.totalWCI.toFixed(1)); h += fld('Reliability', s.reliability + '%'); }
+        h += '</div>';
+        if (p.AutoCapability) h += '<div class="notes-box"><strong>Auto:</strong> ' + esc(p.AutoCapability) + '</div>';
+        if (p.Notes) h += '<div class="notes-box"><strong>Strategy:</strong> ' + esc(p.Notes) + '</div>';
+        h += '</div>';
+    });
+    document.getElementById('pitContent').innerHTML = h;
+}
+
+/* ================================================================
+   TAB: COMPARE
+   ================================================================ */
+function renderCompare() {
+    var ids = ['cmp1','cmp2','cmp3'].map(function(id) { return document.getElementById(id).value; }).filter(Boolean);
+    var teams = []; ids.forEach(function(t) { if (teamStats[t]) teams.push(teamStats[t]); });
+    if (teams.length < 2) { document.getElementById('cmpContent').innerHTML = '<div class="empty"><h3>Select at least 2 teams</h3></div>'; return; }
+
+    var metrics = [
+        { l: 'Total WCI', k: 'totalWCI', f: function(v) { return v.toFixed(1); } },
+        { l: 'Auto WCI', k: 'autoWCI', f: function(v) { return v.toFixed(1); } },
+        { l: 'Teleop WCI', k: 'teleopWCI', f: function(v) { return v.toFixed(1); } },
+        { l: 'Endgame WCI', k: 'endgameWCI', f: function(v) { return v.toFixed(1); } },
+        { l: 'Variance (&#963;)', k: 'variance', f: function(v) { return v.toFixed(1); }, lower: true },
+        { l: 'Consistency', k: 'consistWCI', f: function(v) { return (v*100).toFixed(0)+'%'; } },
+        { l: 'Reliability', k: 'reliability', f: function(v) { return v+'%'; } },
+        { l: 'Confidence', k: 'confidence', f: function(v) { return (v*100).toFixed(0)+'%'; } },
+        { l: 'Trend', k: 'trend', f: function(v) { return (v>=0?'+':'')+v.toFixed(1); } },
+        { l: 'Matches', k: 'n', f: function(v) { return v; } }
+    ];
+
+    var h = '<div class="compare-grid">';
+    teams.forEach(function(s) {
+        h += '<div class="compare-card"><h4>Team ' + s.team + ' ' + tierBadge(s.tier) + ' <span class="role ' + s.role.cls + '">' + s.role.icon + '</span></h4>';
+        metrics.forEach(function(m) {
+            var vals = teams.map(function(t) { return t[m.k]; });
+            var best = m.lower ? Math.min.apply(null, vals) : Math.max.apply(null, vals);
+            var isBest = (s[m.k] === best);
+            h += '<div class="stat-row"><span class="lbl">' + m.l + '</span><span class="val" style="' + (isBest ? 'color:#DAA520;' : '') + '">' + m.f(s[m.k]) + (isBest ? ' &#9733;' : '') + '</span></div>';
+        });
+        h += '<div style="margin-top:8px;">' + sparklineSVG(s.totalArr, 240, 40) + '</div>';
+        h += '</div>';
+    });
+    h += '</div>';
+
+    // Radar overlay
+    h += '<h3 style="color:#DAA520; margin:20px 0 10px;">Role Fingerprint Overlay</h3>';
+    h += radarCompareSVG(teams);
+
+    // WCI bar comparison
+    h += '<h3 style="color:#DAA520; margin:20px 0 10px;">WCI Component Comparison</h3>';
+    var barColors = ['#DAA520', '#58a6ff', '#3fb950'];
+    ['autoWCI', 'teleopWCI', 'endgameWCI'].forEach(function(key) {
+        var maxV = 1; teams.forEach(function(s) { if (s[key] > maxV) maxV = s[key]; });
+        var label = { autoWCI: 'Auto', teleopWCI: 'Teleop', endgameWCI: 'Endgame' }[key];
+        h += '<div style="margin-bottom:14px;"><strong style="color:#8b949e;font-size:13px;">' + label + '</strong>';
+        teams.forEach(function(s, i) {
+            var pctW = Math.max((s[key] / maxV * 100), 5).toFixed(0);
+            h += '<div class="wci-bar"><span class="wci-label">Team ' + s.team + '</span><div class="wci-track"><div class="wci-fill" style="width:' + pctW + '%;background:' + barColors[i] + '">' + s[key].toFixed(1) + '</div></div></div>';
+        });
+        h += '</div>';
+    });
+
+    document.getElementById('cmpContent').innerHTML = h;
+}
+
+/* ================================================================
+   TAB: MATCH PREDICTOR (WCI-based)
+   ================================================================ */
+function runPrediction() {
+    function getTeams(prefix) {
+        var r = [];
+        [1,2,3].forEach(function(i) { var v = document.getElementById(prefix+i).value; if (v && teamStats[v]) r.push(teamStats[v]); });
+        return r;
+    }
+    var red = getTeams('red'), blue = getTeams('blue');
+    if (!red.length || !blue.length) { document.getElementById('predictResult').innerHTML = '<div class="empty"><h3>Select at least one team per alliance</h3></div>'; return; }
+
+    var redScore  = red.reduce(function(a, s) { return a + s.totalWCI; }, 0);
+    var blueScore = blue.reduce(function(a, s) { return a + s.totalWCI; }, 0);
+    var sigma = 8, diff = redScore - blueScore;
+    var redWinPct = 1 / (1 + Math.pow(10, -diff / sigma));
+    var blueWinPct = 1 - redWinPct;
+    var redRel  = red.reduce(function(a,s) { return a+s.reliability; }, 0) / red.length;
+    var blueRel = blue.reduce(function(a,s) { return a+s.reliability; }, 0) / blue.length;
+    var redConf  = red.reduce(function(a,s) { return a+s.confidence; }, 0) / red.length;
+    var blueConf = blue.reduce(function(a,s) { return a+s.confidence; }, 0) / blue.length;
+    var favored = redWinPct > blueWinPct ? 'Red' : 'Blue';
+    var favPct = Math.max(redWinPct, blueWinPct);
+    var favClr = favored === 'Red' ? '#f85149' : '#58a6ff';
+
+    var h = '<div class="predict-result">';
+    h += '<h3 style="color:' + favClr + '">' + favored + ' Alliance Favored</h3>';
+    h += '<div class="predict-pct" style="color:' + favClr + '">' + (favPct * 100).toFixed(0) + '%</div>';
+    h += '<div class="predict-score">Predicted: Red ' + redScore.toFixed(1) + ' &mdash; Blue ' + blueScore.toFixed(1) + '</div>';
+    h += '<div style="font-size:12px;color:#484f58;margin-top:4px;">Prediction confidence: ' + ((redConf + blueConf) / 2 * 100).toFixed(0) + '% (based on data quality)</div>';
+    h += '</div>';
+
+    h += '<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:16px;">';
+    var alliances = [
+        { name:'Red', teams:red, score:redScore, pct:redWinPct, rel:redRel, color:'#f85149' },
+        { name:'Blue', teams:blue, score:blueScore, pct:blueWinPct, rel:blueRel, color:'#58a6ff' }
+    ];
+    alliances.forEach(function(a) {
+        h += '<div class="card" style="flex:1;min-width:280px;border-color:' + a.color + '">';
+        h += '<h3 style="color:' + a.color + '">' + a.name + ' Alliance &mdash; ' + a.score.toFixed(1) + ' pts (' + (a.pct*100).toFixed(0) + '%)</h3>';
+        h += '<table><thead><tr><th>Team</th><th>Auto</th><th>Teleop</th><th>Endgame</th><th>Total</th><th>Role</th><th>&#963;</th></tr></thead><tbody>';
+        a.teams.forEach(function(s) {
+            h += '<tr><td><strong>' + s.team + '</strong> ' + tierBadge(s.tier) + '</td>';
+            h += '<td>' + s.autoWCI.toFixed(1) + '</td><td>' + s.teleopWCI.toFixed(1) + '</td>';
+            h += '<td>' + s.endgameWCI.toFixed(1) + '</td><td><strong>' + s.totalWCI.toFixed(1) + '</strong></td>';
+            h += '<td><span class="role ' + s.role.cls + '">' + s.role.icon + '</span></td>';
+            h += '<td>' + s.variance.toFixed(1) + '</td></tr>';
+        });
+        h += '</tbody></table>';
+        var alAuto = a.teams.reduce(function(x,s) { return x+s.autoWCI; }, 0);
+        var alTel  = a.teams.reduce(function(x,s) { return x+s.teleopWCI; }, 0);
+        var alEnd  = a.teams.reduce(function(x,s) { return x+s.endgameWCI; }, 0);
+        h += '<div style="margin-top:8px;font-size:12px;color:#8b949e;">Auto: ' + alAuto.toFixed(1) + ' | Teleop: ' + alTel.toFixed(1) + ' | Endgame: ' + alEnd.toFixed(1) + ' | Reliability: ' + a.rel.toFixed(0) + '%</div></div>';
+    });
+    h += '</div>';
+    h += '<p style="color:#484f58;font-size:11px;margin-top:12px;text-align:center;">Win probability based on WCI logistic model. Predictions are estimates &mdash; actual results depend on strategy, execution, and match dynamics.</p>';
+    document.getElementById('predictResult').innerHTML = h;
+}
+
+/* ================================================================
+   TAB: PICK LIST
+   ================================================================ */
+function renderPickList() {
+    var teams = [];
+    Object.keys(teamStats).forEach(function(t) { teams.push(teamStats[t]); });
+    teams.sort(function(a, b) { return b.value - a.value; });
+
+    var h = '<table><thead><tr>';
+    h += '<th>#</th><th>Team</th><th>Tier</th><th>Role</th><th>Value</th><th>WCI</th>';
+    h += '<th>&#963; Var</th><th>Conf</th><th>Strengths</th><th>Concerns</th><th>Trend</th>';
+    h += '</tr></thead><tbody>';
+
+    teams.forEach(function(s, i) {
+        var str = [], con = [];
+        if (s.teleopWCI >= 7) str.push('Elite scorer');
+        else if (s.teleopWCI >= 4) str.push('Good scorer');
+        if (s.autoWCI >= 6) str.push('Strong auto');
+        else if (s.autoWCI >= 3) str.push('Decent auto');
+        if (s.endgameWCI >= 4) str.push('Climber');
+        if (s.defenseGood >= 2) str.push('Solid defense');
+        if (s.reliability >= 95 && s.n >= 3) str.push('Ultra reliable');
+        else if (s.reliability >= 85) str.push('Reliable');
+        if (s.consistWCI >= 0.8) str.push('Consistent');
+        if (s.variance <= 1.5 && s.n >= 3) str.push('Predictable');
+        if (s.trend > 2) str.push('Improving');
+
+        if (s.foulsMajor > 0) con.push(s.foulsMajor + ' major foul' + (s.foulsMajor > 1 ? 's' : ''));
+        if (s.reliability < 80) con.push('Reliability risk');
+        if (s.consistWCI < 0.4) con.push('Inconsistent');
+        if (s.variance > 5) con.push('High variance');
+        if (s.confLevel === 'low') con.push('Low confidence');
+        if (s.n < 3) con.push('Low data (' + s.n + ')');
+        if (s.trend < -2) con.push('Declining');
+
+        var tIcon = s.trendDir === 'up' ? '<span class="trend-up">&#9650;</span>' : s.trendDir === 'down' ? '<span class="trend-down">&#9660;</span>' : '&mdash;';
+        h += '<tr><td>' + (i+1) + '</td>';
+        h += '<td><strong class="' + s.pctClass + '">' + s.team + '</strong></td>';
+        h += '<td>' + tierBadge(s.tier) + '</td>';
+        h += '<td><span class="role ' + s.role.cls + '">' + s.role.icon + ' ' + s.role.name + '</span></td>';
+        h += '<td><strong>' + s.value.toFixed(1) + '</strong></td>';
+        h += '<td>' + s.totalWCI.toFixed(1) + '</td>';
+        h += '<td style="color:' + (s.variance <= 2 ? '#3fb950' : s.variance <= 4 ? '#DAA520' : '#f85149') + '">' + s.variance.toFixed(1) + '</td>';
+        h += '<td>' + confBadge(s.confLevel) + '</td>';
+        h += '<td style="color:#3fb950;font-size:12px;">' + (str.join(', ') || 'Developing') + '</td>';
+        h += '<td style="color:#f85149;font-size:12px;">' + (con.join(', ') || 'None') + '</td>';
+        h += '<td>' + tIcon + '</td></tr>';
+    });
+    h += '</tbody></table>';
+    if (!teams.length) h = '<div class="empty"><h3>No data</h3></div>';
+    document.getElementById('pickContent').innerHTML = h;
+}
+
+/* ================================================================
+   TAB: SCOUT REPORT (Scout Agreement + Quality)
+   ================================================================ */
+function renderScoutReport() {
+    var scouts = [];
+    Object.keys(scoutStats).forEach(function(n) { scouts.push(scoutStats[n]); });
+    scouts.sort(function(a, b) { return b.matches - a.matches; });
+
+    if (!scouts.length) { document.getElementById('scoutContent').innerHTML = '<div class="empty"><h3>No scout data</h3></div>'; return; }
+
+    // Scout summary table
+    var h = '<h3 style="color:#DAA520; margin-bottom:12px;">Scout Activity</h3>';
+    h += '<table><thead><tr><th>Scout</th><th>Matches</th><th>Teams Covered</th><th>Avg WCI Given</th><th>Rating Spread</th></tr></thead><tbody>';
+    var globalAvg = avg(matchData.map(function(m) { return pointsAuto(m) + pointsTeleop(m) + pointsEndgame(m); }));
+    scouts.forEach(function(sc) {
+        var spread = sc.ratings.length >= 2 ? stdDev(sc.ratings) : 0;
+        var deviation = Math.abs(sc.avgRating - globalAvg);
+        var devColor = deviation <= 2 ? '#3fb950' : deviation <= 4 ? '#DAA520' : '#f85149';
+        h += '<tr>';
+        h += '<td><strong>' + sc.name + '</strong></td>';
+        h += '<td>' + sc.matches + '</td>';
+        h += '<td>' + sc.teamCount + '</td>';
+        h += '<td style="color:' + devColor + '">' + sc.avgRating.toFixed(1) + ' <span style="font-size:11px;color:#484f58;">(avg: ' + globalAvg.toFixed(1) + ')</span></td>';
+        h += '<td>' + spread.toFixed(1) + '</td>';
+        h += '</tr>';
+    });
+    h += '</tbody></table>';
+    h += '<p style="color:#484f58;font-size:11px;margin-top:6px;">Avg WCI Given: compares each scout\'s average rating to the global average. Large deviation may indicate rating bias. Spread shows variance in a scout\'s ratings (higher = more differentiation between teams).</p>';
+
+    // Team agreement section
+    h += '<h3 style="color:#DAA520; margin:20px 0 12px;">Scout Agreement by Team</h3>';
+    h += '<p style="color:#8b949e;font-size:12px;margin-bottom:12px;">When multiple scouts watched the same team, this shows how closely they agreed. High agreement = reliable data. Low agreement = investigate further.</p>';
+    var teamsWithMulti = [];
+    Object.keys(teamStats).forEach(function(t) {
+        var s = teamStats[t];
+        if (s.scoutAgreement !== null) teamsWithMulti.push(s);
+    });
+    teamsWithMulti.sort(function(a, b) { return a.scoutAgreement - b.scoutAgreement; }); // worst first
+
+    if (teamsWithMulti.length) {
+        h += '<table><thead><tr><th>Team</th><th>Scouts</th><th>Agreement</th><th>Visual</th><th>Recommendation</th></tr></thead><tbody>';
+        teamsWithMulti.forEach(function(s) {
+            var agreeClr = s.scoutAgreement >= 80 ? '#3fb950' : s.scoutAgreement >= 60 ? '#DAA520' : '#f85149';
+            var rec = s.scoutAgreement >= 80 ? 'Data reliable' : s.scoutAgreement >= 60 ? 'Acceptable' : 'Re-scout recommended';
+            h += '<tr>';
+            h += '<td><strong>' + s.team + '</strong></td>';
+            h += '<td>' + Object.keys(s.scouts).join(', ') + '</td>';
+            h += '<td style="color:' + agreeClr + '">' + s.scoutAgreement + '%</td>';
+            h += '<td style="width:120px;"><div class="agree-bar"><div class="agree-fill" style="width:' + s.scoutAgreement + '%;background:' + agreeClr + '"></div></div></td>';
+            h += '<td style="color:' + agreeClr + ';font-size:12px;">' + rec + '</td>';
+            h += '</tr>';
+        });
+        h += '</tbody></table>';
+    } else {
+        h += '<div class="empty"><h3>No teams with multiple scouts yet</h3><p style="color:#484f58;">Each team needs data from 2+ different scouts to compute agreement</p></div>';
+    }
+
+    document.getElementById('scoutContent').innerHTML = h;
+}
+
+/* ================================================================
+   EVENT HANDLERS
+   ================================================================ */
+
+document.querySelectorAll('.tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+        document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+        document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+});
+
+document.getElementById('fileInput').addEventListener('change', function(e) {
+    var file = e.target.files[0]; if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) { parseCSV(ev.target.result); updateUI(); document.getElementById('importZone').style.display = 'none'; };
+    reader.readAsText(file);
+});
+
+var iz = document.getElementById('importZone');
+iz.addEventListener('dragover', function(e) { e.preventDefault(); iz.classList.add('dragover'); });
+iz.addEventListener('dragleave', function() { iz.classList.remove('dragover'); });
+iz.addEventListener('drop', function(e) {
+    e.preventDefault(); iz.classList.remove('dragover');
+    var file = e.dataTransfer.files[0]; if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) { parseCSV(ev.target.result); updateUI(); iz.style.display = 'none'; };
+    reader.readAsText(file);
+});
+
+function importFromPaste() {
+    var text = document.getElementById('pasteArea').value.trim();
+    if (!text) return;
+    parseCSV(text); updateUI(); document.getElementById('importZone').style.display = 'none';
+}
+</script>
+</body>
+</html>
