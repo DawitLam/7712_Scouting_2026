@@ -534,7 +534,7 @@ function startLiveCameraScan() {
                         }
                     }).catch(() => {});
                 }
-            }, 300);
+            }, 150);
         })
         .catch(err => {
             status.textContent = 'Camera access denied. Try "Scan QR From Image" instead.';
@@ -1045,11 +1045,12 @@ function buildImportUrl(csvText) {
 }
 
 function clearAllData() {
+    if (!confirm('Are you sure you want to delete ALL scouting data? This cannot be undone.')) return;
     localStorage.removeItem(MATCHES_KEY);
     localStorage.removeItem(PIT_SCOUTS_KEY);
     showNotification('All scouting data has been cleared', 'success');
     closeModal();
-    if (currentPage === 'dataPage') { loadData(); }
+    navigateToPage('homePage');
 }
 
 function openExportModal() { openTransferModal(); }
@@ -1244,11 +1245,12 @@ function splitCSVLine(line) {
 
 function mergeImportedMatches(importedMatches) {
     const currentMatches = getLocalMatches();
-    // Only skip if exact duplicate (same ID/timestamp) from same scout
-    const existingKeys = new Set(currentMatches.map(match => `${match.id}-${match.timestamp}`));
+    // Build composite key: matchNumber + teamNumber + scoutName to detect true duplicates
+    const makeKey = (m) => `${m.matchNumber || 0}_${m.teamNumber || 0}_${(m.scoutName || '').trim().toLowerCase()}`;
+    const existingKeys = new Set(currentMatches.map(makeKey));
     let added = 0; let skipped = 0;
     importedMatches.forEach(match => {
-        const key = `${match.id}-${match.timestamp}`;
+        const key = makeKey(match);
         if (existingKeys.has(key)) { skipped += 1; return; }
         currentMatches.push(match); existingKeys.add(key); added += 1;
     });
@@ -1486,8 +1488,24 @@ function closeModal() {
     }
 }
 
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+});
+
 function showInstall() {
-    showNotification('Tap Share  Add to Home Screen (iPhone) or Menu  Install App (Android)', 'info');
+    if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        deferredInstallPrompt.userChoice.then(function(choice) {
+            if (choice.outcome === 'accepted') {
+                showNotification('App installed!', 'success');
+            }
+            deferredInstallPrompt = null;
+        });
+    } else {
+        showNotification('Tap Share ➜ Add to Home Screen (iPhone) or Menu ➜ Install App (Android)', 'info');
+    }
 }
 
 document.addEventListener('keydown', function(event) {
