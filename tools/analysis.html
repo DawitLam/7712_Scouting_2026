@@ -145,6 +145,33 @@
         tr.conflict-row:hover td { background: rgba(248,81,73,0.12); }
         .conflict-fields { font-size: 10px; color: #f85149; margin-top: 2px; }
 
+        /* Schedule tab */
+        .sched-setup { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; }
+        .sched-setup .field-group { display: flex; flex-direction: column; gap: 4px; }
+        .sched-setup label { font-size: 10px; text-transform: uppercase; color: #8b949e; letter-spacing: 0.5px; }
+        .sched-setup input, .sched-setup select { padding: 8px 12px; background: #0d1117; border: 1px solid #30363d; color: #e6edf3; border-radius: 8px; font-size: 13px; }
+        .sched-setup input { min-width: 260px; }
+        .sched-status { padding: 10px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
+        .sched-status.info { background: rgba(88,166,255,0.1); border: 1px solid rgba(88,166,255,0.3); color: #58a6ff; }
+        .sched-status.success { background: rgba(63,185,80,0.1); border: 1px solid rgba(63,185,80,0.3); color: #3fb950; }
+        .sched-status.error { background: rgba(248,81,73,0.1); border: 1px solid rgba(248,81,73,0.3); color: #f85149; }
+        .sched-our-match { border-left: 3px solid #DAA520; }
+        .sched-our-match td:first-child { font-weight: 700; color: #DAA520; }
+        .sched-team-tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; margin: 1px; font-weight: 600; }
+        .sched-team-tag.us { background: rgba(218,165,32,0.2); color: #DAA520; }
+        .sched-team-tag.scouted { background: rgba(63,185,80,0.15); color: #3fb950; }
+        .sched-team-tag.unscouted { background: rgba(248,81,73,0.1); color: #f85149; }
+        .sched-team-tag.neutral { background: rgba(139,148,158,0.15); color: #8b949e; }
+        .sched-section { margin-top: 20px; }
+        .sched-section h3 { color: #DAA520; font-size: 16px; margin-bottom: 10px; }
+        .priority-list { display: flex; flex-wrap: wrap; gap: 8px; }
+        .priority-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; min-width: 100px; text-align: center; }
+        .priority-card .team-num { font-size: 18px; font-weight: 700; color: #e6edf3; }
+        .priority-card .team-sub { font-size: 10px; color: #8b949e; margin-top: 2px; }
+        .priority-card.high { border-color: #f85149; }
+        .priority-card.med { border-color: #DAA520; }
+        .priority-card.done { border-color: #3fb950; opacity: 0.7; }
+
         .back-btn { display: inline-block; margin-bottom: 14px; cursor: pointer; color: #DAA520; font-size: 13px; font-weight: 600; border: none; background: none; }
         .back-btn:hover { text-decoration: underline; }
 
@@ -176,7 +203,7 @@
         <div>
             <h1>&#127942; Team 7712 ACCN-Umoja &mdash; Scouting Analysis</h1>
             <div class="subtitle">REBUILT 2026 &middot; WCI Metrics (Weighted Contribution Index) &middot; Import CSV to begin
-                <span class="badge badge-gold">v1.0</span>
+                <span class="badge badge-gold">v1.1</span>
             </div>
         </div>
     </div>
@@ -190,6 +217,9 @@
             <div class="paste-area">
                 <textarea id="pasteArea" placeholder="Paste CSV data here..."></textarea>
                 <button onclick="importFromPaste()">Import Pasted Data</button>
+            </div>
+            <div style="margin-top:16px;">
+                <button class="btn-sm btn-gray" onclick="showScheduleOnly()" style="font-size:14px;padding:10px 24px;">&#128197; View TBA Schedule (no CSV needed)</button>
             </div>
         </div>
 
@@ -212,6 +242,7 @@
             <button class="tab" data-tab="predict">Match Predictor</button>
             <button class="tab" data-tab="picklist">Pick List</button>
             <button class="tab" data-tab="scouts">Scout Report</button>
+            <button class="tab" data-tab="schedule">&#128197; Schedule</button>
         </div>
 
         <!-- WCI Rankings Tab -->
@@ -292,6 +323,29 @@
             <p style="color:#8b949e; margin-bottom:16px;">Scout reliability report. Shows how well scouts agree when scouting the same team, and flags potential data quality issues.</p>
             <div id="scoutContent"></div>
         </div>
+
+        <!-- Schedule Tab (TBA Integration) -->
+        <div class="tab-content" id="tab-schedule">
+            <p style="color:#8b949e; margin-bottom:16px;">Fetch match schedules from The Blue Alliance. Shows 7712's matches, scouting priorities, and cross-references with your imported data.</p>
+            <div class="sched-setup">
+                <div class="field-group">
+                    <label>TBA API Key</label>
+                    <input type="password" id="tbaKey" placeholder="Paste your TBA API key..." value="">
+                </div>
+                <div class="field-group">
+                    <label>Event</label>
+                    <select id="tbaEvent">
+                        <option value="">Select event...</option>
+                        <option value="2026onosh">Durham College (Mar 13-15)</option>
+                        <option value="2026onnob">North Bay (Mar 20-22)</option>
+                    </select>
+                </div>
+                <button class="btn-sm btn-gold" onclick="fetchTBASchedule()">Fetch Schedule</button>
+                <button class="btn-sm btn-gray" onclick="clearTBACache()">Clear Cache</button>
+            </div>
+            <div id="schedStatus"></div>
+            <div id="schedContent"></div>
+        </div>
     </div>
 
 <script>
@@ -306,6 +360,13 @@ var teamStats = {};
 var scoutStats = {};
 var consensusData  = [];   // one record per (Match, Team) after majority-vote / median
 var matchAgreement = {};   // key "Match||Team" → { pct, scouts, conflicts, count }
+
+/* TBA Schedule data */
+var tbaTeams    = [];   // team keys at the event
+var tbaMatches  = [];   // match objects from TBA
+var tbaEventKey = '';   // current event key
+var OUR_TEAM    = 'frc7712';
+var OUR_NUM     = '7712';
 
 /* ================================================================
    CSV PARSER
@@ -1394,6 +1455,316 @@ function importFromPaste() {
     var text = document.getElementById('pasteArea').value.trim();
     if (!text) return;
     parseCSV(text); updateUI(); document.getElementById('importZone').style.display = 'none';
+}
+
+/* ================================================================
+   TBA SCHEDULE INTEGRATION
+   Fetches match schedules from The Blue Alliance API and renders
+   7712's matches, scouting priorities, and team list.
+   ================================================================ */
+
+var TBA_BASE = 'https://www.thebluealliance.com/api/v3';
+
+function tbaHeaders() {
+    return { 'X-TBA-Auth-Key': document.getElementById('tbaKey').value.trim() };
+}
+
+function schedMsg(text, cls) {
+    document.getElementById('schedStatus').innerHTML = '<div class="sched-status ' + (cls||'info') + '">' + text + '</div>';
+}
+
+function fetchTBASchedule() {
+    var key = document.getElementById('tbaKey').value.trim();
+    var evt = document.getElementById('tbaEvent').value;
+    if (!key) { schedMsg('Please enter your TBA API key.', 'error'); return; }
+    if (!evt) { schedMsg('Please select an event.', 'error'); return; }
+
+    // Save key + event in localStorage for convenience
+    try { localStorage.setItem('tba_key', key); localStorage.setItem('tba_event', evt); } catch(e) {}
+
+    tbaEventKey = evt;
+    schedMsg('&#9203; Fetching data from The Blue Alliance...', 'info');
+
+    // Fetch teams and matches in parallel
+    var teamsDone = false, matchesDone = false, hadError = false;
+    var teamsUrl   = TBA_BASE + '/event/' + evt + '/teams/simple';
+    var matchesUrl = TBA_BASE + '/event/' + evt + '/matches/simple';
+    var headers    = tbaHeaders();
+
+    fetchJSON(teamsUrl, headers, function(err, data) {
+        if (err) { schedMsg('&#10060; Teams fetch failed: ' + err, 'error'); hadError = true; return; }
+        tbaTeams = data || [];
+        teamsDone = true;
+        if (matchesDone && !hadError) renderSchedule();
+    });
+
+    fetchJSON(matchesUrl, headers, function(err, data) {
+        if (err && !hadError) { schedMsg('&#10060; Matches fetch failed: ' + err, 'error'); hadError = true; return; }
+        tbaMatches = data || [];
+        matchesDone = true;
+        if (teamsDone && !hadError) renderSchedule();
+    });
+}
+
+function fetchJSON(url, headers, cb) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    Object.keys(headers).forEach(function(k) { xhr.setRequestHeader(k, headers[k]); });
+    xhr.onload = function() {
+        if (xhr.status >= 200 && xhr.status < 300) {
+            try { cb(null, JSON.parse(xhr.responseText)); } catch(e) { cb('Invalid JSON'); }
+        } else {
+            var msg = '';
+            try { msg = JSON.parse(xhr.responseText).Error || xhr.statusText; } catch(e) { msg = xhr.statusText; }
+            cb(msg);
+        }
+    };
+    xhr.onerror = function() { cb('Network error'); };
+    xhr.send();
+}
+
+function clearTBACache() {
+    try { localStorage.removeItem('tba_key'); localStorage.removeItem('tba_event'); } catch(e) {}
+    tbaTeams = []; tbaMatches = []; tbaEventKey = '';
+    document.getElementById('schedContent').innerHTML = '';
+    schedMsg('Cache cleared.', 'info');
+}
+
+/* ── Restore saved TBA settings on load ── */
+(function() {
+    try {
+        var savedKey = localStorage.getItem('tba_key');
+        var savedEvt = localStorage.getItem('tba_event');
+        if (savedKey) document.getElementById('tbaKey').value = savedKey;
+        if (savedEvt) document.getElementById('tbaEvent').value = savedEvt;
+    } catch(e) {}
+})();
+
+/* ── Render the full schedule tab ── */
+function renderSchedule() {
+    var eventNames = { '2026onosh': 'Durham College (Oshawa)', '2026onnob': 'North Bay (Nipissing)' };
+    var eventName = eventNames[tbaEventKey] || tbaEventKey;
+
+    // Sort matches: quals first by number, then playoffs
+    tbaMatches.sort(function(a, b) {
+        var aLevel = matchLevel(a), bLevel = matchLevel(b);
+        if (aLevel !== bLevel) return aLevel - bLevel;
+        return (a.match_number || 0) - (b.match_number || 0);
+    });
+
+    // Build set of scouted teams from our imported data
+    var scoutedTeams = {};
+    Object.keys(teamStats).forEach(function(t) { scoutedTeams[t] = teamStats[t]; });
+
+    // ── Summary ──
+    var ourMatches = tbaMatches.filter(function(m) { return matchHasTeam(m, OUR_TEAM); });
+    var totalTeams = tbaTeams.length;
+    var scoutedCount = 0;
+    tbaTeams.forEach(function(t) {
+        var num = String(t.team_number);
+        if (scoutedTeams[num]) scoutedCount++;
+    });
+
+    schedMsg('&#9989; Loaded <strong>' + eventName + '</strong>: '
+        + totalTeams + ' teams, '
+        + tbaMatches.length + ' matches'
+        + (ourMatches.length ? ' (' + ourMatches.length + ' for 7712)' : ' (schedule not posted yet)')
+        + ' &mdash; ' + scoutedCount + '/' + totalTeams + ' teams scouted',
+        'success');
+
+    var h = '';
+
+    // ── 7712's Match Schedule ──
+    if (ourMatches.length) {
+        h += '<div class="sched-section">';
+        h += '<h3>&#127942; 7712 Match Schedule (' + ourMatches.length + ' matches)</h3>';
+        h += '<table><thead><tr><th>Match</th><th>Red Alliance</th><th>Blue Alliance</th><th>7712 On</th><th>Scouting Notes</th></tr></thead><tbody>';
+        ourMatches.forEach(function(m) {
+            var redKeys  = (m.alliances && m.alliances.red  ? m.alliances.red.team_keys  : []) || [];
+            var blueKeys = (m.alliances && m.alliances.blue ? m.alliances.blue.team_keys : []) || [];
+            var ourSide = redKeys.indexOf(OUR_TEAM) !== -1 ? 'red' : 'blue';
+            var partners = (ourSide === 'red' ? redKeys : blueKeys).filter(function(k) { return k !== OUR_TEAM; });
+            var opponents = ourSide === 'red' ? blueKeys : redKeys;
+
+            // Identify unscouted opponents
+            var unscoutedOpps = opponents.filter(function(k) { return !scoutedTeams[tbaKeyToNum(k)]; });
+
+            h += '<tr class="sched-our-match">';
+            h += '<td>' + matchLabel(m) + '</td>';
+            h += '<td>' + allianceTags(redKeys, scoutedTeams) + '</td>';
+            h += '<td>' + allianceTags(blueKeys, scoutedTeams) + '</td>';
+            h += '<td style="color:' + (ourSide === 'red' ? '#f85149' : '#58a6ff') + ';font-weight:600;">' + ourSide.toUpperCase() + '</td>';
+            h += '<td>';
+            if (unscoutedOpps.length) {
+                h += '<span style="color:#f85149;font-size:12px;">&#9888; Scout: ' + unscoutedOpps.map(tbaKeyToNum).join(', ') + '</span>';
+            } else {
+                h += '<span style="color:#3fb950;font-size:12px;">&#9989; All opponents scouted</span>';
+            }
+            h += '</td></tr>';
+        });
+        h += '</tbody></table></div>';
+    }
+
+    // ── Scouting Priority List ──
+    h += '<div class="sched-section">';
+    h += '<h3>&#128270; Scouting Priorities</h3>';
+    h += '<p style="color:#8b949e;font-size:12px;margin-bottom:10px;">Teams you\'ll face or play with, sorted by priority. Red border = unscouted opponent, Gold = unscouted partner, Green = already scouted.</p>';
+
+    // Collect all teams 7712 interacts with
+    var interactTeams = {};  // teamNum -> { opponent: N, partner: N }
+    ourMatches.forEach(function(m) {
+        var redKeys  = (m.alliances && m.alliances.red  ? m.alliances.red.team_keys  : []) || [];
+        var blueKeys = (m.alliances && m.alliances.blue ? m.alliances.blue.team_keys : []) || [];
+        var ourSide = redKeys.indexOf(OUR_TEAM) !== -1 ? 'red' : 'blue';
+        var partners = (ourSide === 'red' ? redKeys : blueKeys).filter(function(k) { return k !== OUR_TEAM; });
+        var opponents = ourSide === 'red' ? blueKeys : redKeys;
+        opponents.forEach(function(k) {
+            var num = tbaKeyToNum(k);
+            if (!interactTeams[num]) interactTeams[num] = { opponent: 0, partner: 0 };
+            interactTeams[num].opponent++;
+        });
+        partners.forEach(function(k) {
+            var num = tbaKeyToNum(k);
+            if (!interactTeams[num]) interactTeams[num] = { opponent: 0, partner: 0 };
+            interactTeams[num].partner++;
+        });
+    });
+
+    // Sort: unscouted opponents first, then unscouted partners, then scouted
+    var priorityList = Object.keys(interactTeams).map(function(num) {
+        var info = interactTeams[num];
+        var scouted = !!scoutedTeams[num];
+        var score = 0;
+        if (!scouted) score += 100;
+        score += info.opponent * 3;  // opponents matter more
+        score += info.partner * 1;
+        return { num: num, opponent: info.opponent, partner: info.partner, scouted: scouted, score: score };
+    });
+    priorityList.sort(function(a, b) { return b.score - a.score; });
+
+    h += '<div class="priority-list">';
+    priorityList.forEach(function(p) {
+        var cls = p.scouted ? 'done' : (p.opponent > 0 ? 'high' : 'med');
+        var wci = scoutedTeams[p.num] ? scoutedTeams[p.num].totalWCI.toFixed(1) + ' WCI' : 'NOT SCOUTED';
+        h += '<div class="priority-card ' + cls + '">';
+        h += '<div class="team-num">' + p.num + '</div>';
+        h += '<div class="team-sub">';
+        if (p.opponent) h += 'vs ' + p.opponent + 'x ';
+        if (p.partner) h += 'with ' + p.partner + 'x';
+        h += '</div>';
+        h += '<div class="team-sub" style="color:' + (p.scouted ? '#3fb950' : '#f85149') + '">' + wci + '</div>';
+        if (p.scouted && scoutedTeams[p.num]) {
+            h += '<div class="team-sub">' + tierBadge(scoutedTeams[p.num].tier) + '</div>';
+        }
+        h += '</div>';
+    });
+    h += '</div></div>';
+
+    // ── Full Team List ──
+    h += '<div class="sched-section">';
+    h += '<h3>&#128101; All Teams at Event (' + totalTeams + ')</h3>';
+    h += '<table><thead><tr><th>#</th><th>Team</th><th>Name</th><th>Scouted?</th><th>WCI</th><th>Tier</th><th>Interact</th></tr></thead><tbody>';
+    tbaTeams.slice().sort(function(a, b) { return a.team_number - b.team_number; }).forEach(function(t, i) {
+        var num = String(t.team_number);
+        var s = scoutedTeams[num];
+        var inter = interactTeams[num];
+        var isUs = num === OUR_NUM;
+        h += '<tr' + (isUs ? ' style="background:rgba(218,165,32,0.08);"' : '') + '>';
+        h += '<td>' + (i + 1) + '</td>';
+        h += '<td><strong' + (isUs ? ' style="color:#DAA520;"' : '') + '>' + num + '</strong></td>';
+        h += '<td>' + esc(t.nickname || t.name || '') + '</td>';
+        if (isUs) {
+            h += '<td style="color:#DAA520;">&#127942; US</td>';
+        } else if (s) {
+            h += '<td style="color:#3fb950;">&#9989; ' + s.n + ' match' + (s.n > 1 ? 'es' : '') + '</td>';
+        } else {
+            h += '<td style="color:#f85149;">&#10060; No</td>';
+        }
+        h += '<td>' + (s ? s.totalWCI.toFixed(1) : '&mdash;') + '</td>';
+        h += '<td>' + (s ? tierBadge(s.tier) : '&mdash;') + '</td>';
+        h += '<td>';
+        if (inter) {
+            if (inter.opponent) h += '<span style="color:#f85149;font-size:11px;">vs ' + inter.opponent + 'x</span> ';
+            if (inter.partner) h += '<span style="color:#3fb950;font-size:11px;">with ' + inter.partner + 'x</span>';
+        } else if (!isUs) {
+            h += '<span style="color:#484f58;font-size:11px;">none</span>';
+        }
+        h += '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+
+    // ── Full Match Schedule ──
+    if (tbaMatches.length) {
+        h += '<div class="sched-section">';
+        h += '<h3>&#128203; Full Match Schedule (' + tbaMatches.length + ' matches)</h3>';
+        h += '<table><thead><tr><th>Match</th><th>Red 1</th><th>Red 2</th><th>Red 3</th><th>Blue 1</th><th>Blue 2</th><th>Blue 3</th></tr></thead><tbody>';
+        tbaMatches.forEach(function(m) {
+            var redKeys  = (m.alliances && m.alliances.red  ? m.alliances.red.team_keys  : []) || [];
+            var blueKeys = (m.alliances && m.alliances.blue ? m.alliances.blue.team_keys : []) || [];
+            var hasUs = matchHasTeam(m, OUR_TEAM);
+            h += '<tr' + (hasUs ? ' class="sched-our-match"' : '') + '>';
+            h += '<td>' + matchLabel(m) + '</td>';
+            redKeys.forEach(function(k) { h += '<td>' + teamTag(k, scoutedTeams) + '</td>'; });
+            for (var r = redKeys.length; r < 3; r++) h += '<td>&mdash;</td>';
+            blueKeys.forEach(function(k) { h += '<td>' + teamTag(k, scoutedTeams) + '</td>'; });
+            for (var b = blueKeys.length; b < 3; b++) h += '<td>&mdash;</td>';
+            h += '</tr>';
+        });
+        h += '</tbody></table></div>';
+    } else {
+        h += '<div class="sched-section"><div class="empty"><h3>Match schedule not posted yet</h3><p style="color:#484f58;">Schedules typically appear 1-2 days before the event. Team list is available now.</p></div></div>';
+    }
+
+    document.getElementById('schedContent').innerHTML = h;
+}
+
+/* ── TBA helpers ── */
+function tbaKeyToNum(key) { return (key || '').replace('frc', ''); }
+
+function matchHasTeam(m, teamKey) {
+    var a = m.alliances || {};
+    var red  = (a.red  && a.red.team_keys)  || [];
+    var blue = (a.blue && a.blue.team_keys) || [];
+    return red.indexOf(teamKey) !== -1 || blue.indexOf(teamKey) !== -1;
+}
+
+function matchLevel(m) {
+    var cl = m.comp_level || '';
+    if (cl === 'qm') return 1;
+    if (cl === 'ef') return 2;
+    if (cl === 'qf') return 3;
+    if (cl === 'sf') return 4;
+    if (cl === 'f')  return 5;
+    return 9;
+}
+
+function matchLabel(m) {
+    var cl = m.comp_level || 'qm';
+    var labels = { qm: 'Q', ef: 'E', qf: 'QF', sf: 'SF', f: 'F' };
+    var prefix = labels[cl] || cl.toUpperCase();
+    var num = m.match_number || '';
+    if (m.set_number && cl !== 'qm') prefix += m.set_number + '-';
+    return prefix + num;
+}
+
+function teamTag(key, scoutedTeams) {
+    var num = tbaKeyToNum(key);
+    if (key === OUR_TEAM) return '<span class="sched-team-tag us">' + num + '</span>';
+    if (scoutedTeams[num]) return '<span class="sched-team-tag scouted">' + num + '</span>';
+    return '<span class="sched-team-tag unscouted">' + num + '</span>';
+}
+
+function allianceTags(keys, scoutedTeams) {
+    return keys.map(function(k) { return teamTag(k, scoutedTeams); }).join(' ');
+}
+
+/** Show the Schedule tab without requiring CSV import */
+function showScheduleOnly() {
+    document.getElementById('tabsBar').style.display = 'flex';
+    document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+    document.querySelector('[data-tab="schedule"]').classList.add('active');
+    document.getElementById('tab-schedule').classList.add('active');
 }
 </script>
 </body>
