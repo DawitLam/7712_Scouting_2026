@@ -27,6 +27,12 @@
         .paste-area { width: 100%; max-width: 600px; margin: 12px auto 0; }
         .paste-area textarea { width: 100%; height: 60px; background: #161b22; border: 1px solid #30363d; color: #e6edf3; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 13px; resize: vertical; }
         .paste-area button { margin-top: 8px; padding: 8px 20px; background: #238636; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .qr-scan-zone { width: 100%; max-width: 600px; margin: 0 auto 16px; background: #0d1117; border: 2px solid #238636; border-radius: 12px; padding: 16px; }
+        .qr-scan-zone label { display: block; color: #3fb950; font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+        .qr-scan-zone textarea { width: 100%; height: 52px; background: #161b22; border: 1px solid #238636; color: #e6edf3; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 12px; resize: none; }
+        .qr-scan-zone .scan-status { font-size: 12px; margin-top: 6px; min-height: 18px; color: #3fb950; }
+        .qr-scan-zone .scan-status.error { color: #f85149; }
+        .qr-scan-zone .scan-status.ok { color: #3fb950; }
 
         /* Stats bar */
         .stats-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -196,6 +202,22 @@
 
         .tooltip { position: relative; cursor: help; border-bottom: 1px dotted #484f58; }
         .tooltip:hover::after { content: attr(data-tip); position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); background: #30363d; color: #e6edf3; padding: 6px 10px; border-radius: 6px; font-size: 11px; white-space: nowrap; z-index: 10; }
+
+        /* Sync / live-update toolbar */
+        .sync-toolbar { display: none; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap; padding: 4px 0; }
+        .sync-toolbar.visible { display: flex; }
+        .sync-info { font-size: 12px; color: #8b949e; }
+        .sync-count { font-size: 11px; background: rgba(63,185,80,0.15); color: #3fb950; padding: 2px 8px; border-radius: 8px; font-weight: 600; }
+        .import-zone .from-app-btn { display: inline-block; padding: 12px 32px; background: #238636; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 12px; }
+        .import-zone .from-app-btn:hover { background: #2ea043; }
+        .import-zone .from-app-hint { font-size: 11px; color: #484f58; margin-top: 6px; }
+        .import-zone .or-divider { color: #484f58; margin: 12px 0 4px; font-size: 12px; }
+        .append-file-label { padding: 7px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; background: #30363d; color: #e6edf3; }
+        .append-file-label:hover { background: #484f58; }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #238636; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 9999; opacity: 0; transform: translateY(10px); transition: opacity 0.25s, transform 0.25s; pointer-events: none; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.warn { background: #9a6700; }
+        .toast.err  { background: #b62324; }
     </style>
 </head>
 <body>
@@ -203,20 +225,38 @@
         <div>
             <h1>&#127942; Team 7712 ACCN-Umoja &mdash; Scouting Analysis</h1>
             <div class="subtitle">REBUILT 2026 &middot; WCI Metrics (Weighted Contribution Index) &middot; Import CSV to begin
-                <span class="badge badge-gold">v1.1</span>
+                <span class="badge badge-gold">v1.2</span>
             </div>
         </div>
+        <!-- Sync toolbar — appears after first data load -->
+        <div class="sync-toolbar" id="syncToolbar">
+            <span class="sync-info" id="syncInfo"></span>
+            <button class="btn-sm btn-green" onclick="syncFromApp()" title="Re-read all data from this browser's scouting app storage">&#8635; Sync from App</button>
+            <label class="append-file-label" title="Append more data from a CSV file without losing existing records">+ Append CSV<input type="file" id="appendFileInput" accept=".csv,.txt" style="display:none"></label>
+            <button class="btn-sm btn-gray" onclick="showImportZone()" title="Load a completely new dataset">&#8635; Change Data</button>
+        </div>
     </div>
+    <div class="toast" id="toast"></div>
 
     <div class="container">
         <!-- Import Zone -->
         <div class="import-zone" id="importZone">
             <h2>&#128202; Import Scouting Data</h2>
-            <p>Drop your CSV file here, click to browse, or paste below</p>
+            <p>Drop your CSV file here, click to browse, scan a QR code, or paste below</p>
             <label class="btn">Choose CSV File<input type="file" id="fileInput" accept=".csv,.txt"></label>
+            <div class="qr-scan-zone">
+                <label>&#128247; Bluetooth / USB QR Scanner &mdash; click here then scan</label>
+                <textarea id="qrScanInput" placeholder="Click here, then scan a QR code with your Bluetooth or USB reader. Data imports automatically."></textarea>
+                <div class="scan-status" id="qrScanStatus">Ready &mdash; click the box above then scan</div>
+            </div>
             <div class="paste-area">
                 <textarea id="pasteArea" placeholder="Paste CSV data here..."></textarea>
                 <button onclick="importFromPaste()">Import Pasted Data</button>
+            </div>
+            <p class="or-divider">&mdash; or &mdash;</p>
+            <div>
+                <button class="from-app-btn" onclick="importFromApp()">&#128242; Load from Scouting App</button>
+                <p class="from-app-hint">Reads data directly from this browser's storage &mdash; works when opened in the same browser as the scouting app</p>
             </div>
             <div style="margin-top:16px;">
                 <button class="btn-sm btn-gray" onclick="showScheduleOnly()" style="font-size:14px;padding:10px 24px;">&#128197; View TBA Schedule (no CSV needed)</button>
@@ -360,6 +400,21 @@ var teamStats = {};
 var scoutStats = {};
 var consensusData  = [];   // one record per (Match, Team) after majority-vote / median
 var matchAgreement = {};   // key "Match||Team" → { pct, scouts, conflicts, count }
+
+/* Natural sort for match codes: Q1 < Q2 < Q10 < SF1-1 < SF2-2 < F1 < F2 */
+function naturalSortMatch(a, b) {
+    var order = { 'Q': 1, 'EF': 2, 'QF': 3, 'SF': 4, 'F': 5 };
+    function parse(s) {
+        s = (s || '').toUpperCase();
+        var m = s.match(/^([A-Z]+)(\d+)(?:[\-_](\d+))?$/);
+        if (!m) return { grp: 99, n1: 0, n2: 0, raw: s };
+        return { grp: order[m[1]] || 9, n1: parseInt(m[2]) || 0, n2: parseInt(m[3]) || 0 };
+    }
+    var pa = parse(a), pb = parse(b);
+    if (pa.grp !== pb.grp) return pa.grp - pb.grp;
+    if (pa.n1 !== pb.n1) return pa.n1 - pb.n1;
+    return pa.n2 - pb.n2;
+}
 
 /* TBA Schedule data */
 var tbaTeams    = [];   // team keys at the event
@@ -805,6 +860,14 @@ function updateUI() {
     }
     populateDropdowns(teams);
     renderWCI(); renderMatches(); renderPits(); renderPickList(); renderScoutReport();
+
+    // Show sync toolbar with current counts
+    var tb = document.getElementById('syncToolbar');
+    tb.classList.add('visible');
+    var rawCount = matchData.length;
+    var consCount = consensusData.length;
+    var infoEl = document.getElementById('syncInfo');
+    infoEl.innerHTML = '<span class="sync-count">' + rawCount + ' records → ' + consCount + ' matches</span>';
 }
 
 function populateDropdowns(teams) {
@@ -1136,7 +1199,7 @@ function radarCompareSVG(teams) {
 function renderMatches() {
     var q = document.getElementById('mSearch').value.trim().toLowerCase();
     var ft = document.getElementById('mFilter').value;
-    var data = consensusData.slice();
+    var data = consensusData.slice().sort(function(a, b) { return naturalSortMatch(a.Match, b.Match); });
     if (ft) data = data.filter(function(m) { return m.Team === ft; });
     if (q) data = data.filter(function(m) { return m.Team.indexOf(q) !== -1 || (m.Scout || '').toLowerCase().indexOf(q) !== -1; });
     var h = '<table><thead><tr><th>Match</th><th>Team</th><th>Alliance</th><th>Scout(s)</th><th>Agreement</th><th>Auto</th><th>Teleop Fuel</th><th>Shooting</th><th>Climb</th><th>Defense</th><th>Status</th><th>Consistency</th><th>Notes</th></tr></thead><tbody>';
@@ -1421,6 +1484,159 @@ function renderScoutReport() {
 }
 
 /* ================================================================
+   LIVE DATA — Load / Sync / Append
+   ================================================================ */
+
+/** Convert the app's JSON localStorage format to the CSV format analysis.html expects */
+function buildCSVFromApp(rawMatches, rawPits) {
+    var lines = [];
+    if (rawMatches.length) {
+        lines.push('Type,Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes,Timestamp');
+        rawMatches.forEach(function(m) {
+            var notes = (m.notes || '').replace(/"/g, '""');
+            lines.push([
+                'Match',
+                m.matchNumber,
+                m.teamNumber,
+                m.alliance || '',
+                m.scoutName || '',
+                m.location || '',
+                m.startPosition || 'Not recorded',
+                m.autoScoringMethod || 'None',
+                m.autoFuelCategory || 'None',
+                m.autoTower || 'None',
+                m.teleopFuelCategory || 'None',
+                m.shootingStyle || 'Not observed',
+                m.navigation || 'Not observed',
+                m.teleopTower || 'None',
+                m.playedDefense || 'No',
+                m.defenseEffectiveness || 'Not applicable',
+                m.foulsObserved || 'None',
+                m.robotStatus || 'Worked full match',
+                m.consistencyRating || 'Reliable',
+                m.humanPlayerTeam || '',
+                m.humanPlayerRating || 'Not observed',
+                '"' + notes + '"',
+                m.timestamp || ''
+            ].join(','));
+        });
+    }
+    if (rawPits.length) {
+        if (lines.length) lines.push('');
+        lines.push('Type,Team,Scout,RobotType,ShooterType,Dimensions,Weight,Drivetrain,Navigation,FuelCapacity,CycleTime,AutoCapability,ClimbLevel,DriverExperience,Notes,Timestamp');
+        rawPits.forEach(function(p) {
+            var auto  = (p.autoScore  || '').replace(/"/g, '""');
+            var notes = (p.pitNotes   || '').replace(/"/g, '""');
+            lines.push([
+                'PitScout',
+                p.teamNumber,
+                p.scoutName || '',
+                p.robotType || 'Not specified',
+                p.shooterType || 'Not specified',
+                p.robotDimension || '',
+                p.robotWeight || '',
+                p.drivetrainType || '',
+                p.navigationCapability || '',
+                p.fuelCapacity || '',
+                p.robotCycleTime || 'Not specified',
+                '"' + auto + '"',
+                p.climbCapability || '',
+                p.driverExperience || '',
+                '"' + notes + '"',
+                p.timestamp || ''
+            ].join(','));
+        });
+    }
+    return lines.join('\n');
+}
+
+/** Read app localStorage → populate matchData/pitData → render */
+function importFromApp() {
+    var rawMatches = [], rawPits = [];
+    try {
+        rawMatches = JSON.parse(localStorage.getItem('team7712_matches')   || '[]');
+        rawPits    = JSON.parse(localStorage.getItem('team7712_pitscouts') || '[]');
+    } catch(e) {
+        showToast('Could not read localStorage. Are you in the same browser as the app?', 'err'); return;
+    }
+    if (!rawMatches.length && !rawPits.length) {
+        showToast('No scouting data found. Open this page in the same browser you use to scout.', 'warn'); return;
+    }
+    parseCSV(buildCSVFromApp(rawMatches, rawPits));
+    updateUI();
+    document.getElementById('importZone').style.display = 'none';
+    showToast('Loaded ' + rawMatches.length + ' matches + ' + rawPits.length + ' pit scouts from app');
+}
+
+/** Re-read localStorage and REPLACE current data — call after each match */
+function syncFromApp() {
+    var rawMatches = [], rawPits = [];
+    try {
+        rawMatches = JSON.parse(localStorage.getItem('team7712_matches')   || '[]');
+        rawPits    = JSON.parse(localStorage.getItem('team7712_pitscouts') || '[]');
+    } catch(e) {
+        showToast('Could not read localStorage.', 'err'); return;
+    }
+    if (!rawMatches.length && !rawPits.length) {
+        showToast('No data found in app storage.', 'warn'); return;
+    }
+    parseCSV(buildCSVFromApp(rawMatches, rawPits));
+    updateUI();
+    showToast('Synced: ' + rawMatches.length + ' match records · ' + rawPits.length + ' pit scouts');
+}
+
+/**
+ * Append CSV text on top of existing data (merge, deduplicating by Match+Team+Scout+Timestamp).
+ * Lets you load new match CSV exports without wiping what you already have.
+ */
+function appendCSVText(text) {
+    // Temporarily save existing data
+    var prevMatch = matchData.slice();
+    var prevPit   = pitData.slice();
+
+    // Build dedup key sets from existing data
+    var matchKeys = {};
+    prevMatch.forEach(function(m) {
+        matchKeys[(m.Match||'') + '||' + (m.Team||'') + '||' + (m.Scout||'') + '||' + (m.Timestamp||'')] = true;
+    });
+    var pitKeys = {};
+    prevPit.forEach(function(p) {
+        pitKeys[(p.Team||'') + '||' + (p.Scout||'') + '||' + (p.Timestamp||'')] = true;
+    });
+
+    // Parse the new CSV into temp arrays
+    parseCSV(text);   // sets matchData / pitData to new values
+    var newMatch = matchData.filter(function(m) {
+        return !matchKeys[(m.Match||'') + '||' + (m.Team||'') + '||' + (m.Scout||'') + '||' + (m.Timestamp||'')];
+    });
+    var newPit = pitData.filter(function(p) {
+        return !pitKeys[(p.Team||'') + '||' + (p.Scout||'') + '||' + (p.Timestamp||'')];
+    });
+
+    // Merge
+    matchData = prevMatch.concat(newMatch);
+    pitData   = prevPit.concat(newPit);
+
+    updateUI();
+    showToast('Appended ' + newMatch.length + ' new match records · ' + newPit.length + ' new pit scouts');
+}
+
+function showImportZone() {
+    document.getElementById('importZone').style.display = '';
+    document.getElementById('syncToolbar').classList.remove('visible');
+}
+
+/* Small toast notification */
+function showToast(msg, type) {
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast' + (type ? ' ' + type : '');
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(function() { el.classList.remove('show'); }, 3500);
+}
+
+/* ================================================================
    EVENT HANDLERS
    ================================================================ */
 
@@ -1456,6 +1672,83 @@ function importFromPaste() {
     if (!text) return;
     parseCSV(text); updateUI(); document.getElementById('importZone').style.display = 'none';
 }
+
+/* ── QR Scanner (Bluetooth/USB) auto-import ── */
+(function() {
+    var debounceTimer = null;
+    var scanEl, statusEl;
+
+    function processQRScan(text) {
+        text = text.trim();
+        if (!text) return;
+        statusEl.className = 'scan-status';
+        statusEl.textContent = 'Processing...';
+        try {
+            // v3 CSV QR format
+            if (text.startsWith('#SCOUT,v3,')) {
+                var lines = text.split(/\r?\n/).filter(function(l) { return l.trim(); });
+                var dataLines = lines.filter(function(l) {
+                    return !l.startsWith('#SCOUT,') && !l.startsWith('Match,');
+                });
+                if (dataLines.length === 0) throw new Error('No data rows found in QR');
+                // Build a proper CSV with headers for parseCSV
+                var csvText = 'Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes,Timestamp\n' + dataLines.join('\n');
+                appendCSVText(csvText);
+                var meta = lines[0].split(',');
+                var chunk = meta[2], total = meta[3];
+                statusEl.className = 'scan-status ok';
+                statusEl.textContent = '\u2713 Scanned chunk ' + chunk + ' of ' + total + ' — ' + dataLines.length + ' record(s) added';
+            } else {
+                // Try plain CSV
+                appendCSVText(text);
+                statusEl.className = 'scan-status ok';
+                statusEl.textContent = '\u2713 Data imported';
+            }
+            scanEl.value = '';
+        } catch(e) {
+            statusEl.className = 'scan-status error';
+            statusEl.textContent = '\u2717 Error: ' + e.message;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        scanEl = document.getElementById('qrScanInput');
+        statusEl = document.getElementById('qrScanStatus');
+        if (!scanEl) return;
+        scanEl.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            statusEl.className = 'scan-status';
+            statusEl.textContent = 'Scanning...';
+            // Auto-process after 600ms of no new input (scanner finished)
+            debounceTimer = setTimeout(function() {
+                processQRScan(scanEl.value);
+            }, 600);
+        });
+        // Also process immediately on Enter key (some scanners append \n)
+        scanEl.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                clearTimeout(debounceTimer);
+                setTimeout(function() { processQRScan(scanEl.value); }, 50);
+            }
+        });
+        // Highlight border when focused
+        scanEl.addEventListener('focus', function() {
+            scanEl.parentElement.style.borderColor = '#58a6ff';
+            statusEl.textContent = 'Ready — scan now';
+        });
+        scanEl.addEventListener('blur', function() {
+            scanEl.parentElement.style.borderColor = '#238636';
+        });
+    });
+})();
+
+document.getElementById('appendFileInput').addEventListener('change', function(e) {
+    var file = e.target.files[0]; if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) { appendCSVText(ev.target.result); };
+    reader.readAsText(file);
+    e.target.value = ''; // reset so same file can be re-picked
+});
 
 /* ================================================================
    TBA SCHEDULE INTEGRATION
