@@ -4,12 +4,11 @@ const urlsToCache = [
     './',
     '/index.html',
     '/styles.css?v=20251216',
-    '/app.js',
+    '/app.js?v=2.7.0',
     '/manifest.json',
     '/icons/icon-192.png',
     '/icons/icon-512.png',
     '/team7712_logo_reefscape.png',
-    '/team7712_logo_reefscape.png?v=20251205',
     '/vendor/qrcode.min.js',
     '/vendor/jsqr.js',
 ];
