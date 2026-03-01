@@ -246,8 +246,11 @@
             <label class="btn">Choose CSV File<input type="file" id="fileInput" accept=".csv,.txt"></label>
             <div class="qr-scan-zone">
                 <label>&#128247; Bluetooth / USB QR Scanner &mdash; click here then scan</label>
-                <textarea id="qrScanInput" placeholder="Click here, then scan a QR code with your Bluetooth or USB reader. Data imports automatically."></textarea>
-                <div class="scan-status" id="qrScanStatus">Ready &mdash; click the box above then scan</div>
+                <textarea id="qrScanInput" placeholder="Click here, then scan a QR code with your Bluetooth or USB reader, then click Import."></textarea>
+                <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
+                    <button onclick="(function(){ var s=document.getElementById('qrScanInput'); processQRScan(s.value); })()" style="padding:6px 16px;background:#238636;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Import</button>
+                    <div class="scan-status" id="qrScanStatus" style="margin-top:0;">Ready &mdash; scan or paste, then click Import</div>
+                </div>
             </div>
             <div class="paste-area">
                 <textarea id="pasteArea" placeholder="Paste CSV data here..."></textarea>
@@ -1730,18 +1733,13 @@ function importFromPaste() {
         statusEl = document.getElementById('qrScanStatus');
         if (!scanEl) return;
         scanEl.addEventListener('input', function() {
-            clearTimeout(debounceTimer);
             statusEl.className = 'scan-status';
-            statusEl.textContent = 'Scanning...';
-            // Auto-process after 600ms of no new input (scanner finished)
-            debounceTimer = setTimeout(function() {
-                processQRScan(scanEl.value);
-            }, 600);
+            statusEl.textContent = 'Ready — click Import when done';
         });
-        // Also process immediately on Enter key (some scanners append \n)
+        // Process on Enter key (physical scanners that append \n still work automatically)
         scanEl.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
-                clearTimeout(debounceTimer);
+                e.preventDefault();
                 setTimeout(function() { processQRScan(scanEl.value); }, 50);
             }
         });
