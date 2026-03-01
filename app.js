@@ -900,29 +900,30 @@ function prefixForQR(csvText) { return `TEAM7712CSV\n${csvText}`; }
 const QR_CSV_HEADERS = 'Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes';
 
 function encodeMatchRecord(match) {
-    // v3 format: CSV row (comma-separated, notes quoted)
-    const note = (match.notes || '').replace(/"/g, '""').replace(/\n/g, ' ').substring(0, 120);
+    // v3 format: CSV row — all string fields quoted to handle commas in multi-select values
+    const q = (val) => `"${String(val || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`;
+    const note = String(match.notes || '').replace(/"/g, '""').replace(/\n/g, ' ').substring(0, 120);
     return [
-        match.matchNumber || '',
+        q(match.matchNumber || ''),
         match.teamNumber || 0,
-        match.alliance || 'red',
-        match.scoutName || '',
-        match.location || '',
-        match.startPosition || 'Not recorded',
-        match.autoScoringMethod || 'None',
-        match.autoFuelCategory || 'None',
-        match.autoTower || 'None',
-        match.teleopFuelCategory || 'None',
-        match.shootingStyle || 'Not observed',
-        match.navigation || 'Not observed',
-        match.teleopTower || 'None',
-        match.playedDefense || 'No',
-        match.defenseEffectiveness || 'Not applicable',
-        match.foulsObserved || 'None',
-        match.robotStatus || 'Worked full match',
-        match.consistencyRating || 'Reliable',
-        match.humanPlayerTeam || '',
-        match.humanPlayerRating || 'Not observed',
+        q(match.alliance || 'red'),
+        q(match.scoutName || ''),
+        q(match.location || ''),
+        q(match.startPosition || 'Not recorded'),
+        q(match.autoScoringMethod || 'None'),
+        q(match.autoFuelCategory || 'None'),
+        q(match.autoTower || 'None'),
+        q(match.teleopFuelCategory || 'None'),
+        q(match.shootingStyle || 'Not observed'),
+        q(match.navigation || 'Not observed'),
+        q(match.teleopTower || 'None'),
+        q(match.playedDefense || 'No'),
+        q(match.defenseEffectiveness || 'Not applicable'),
+        q(match.foulsObserved || 'None'),
+        q(match.robotStatus || 'Worked full match'),
+        q(match.consistencyRating || 'Reliable'),
+        q(match.humanPlayerTeam || ''),
+        q(match.humanPlayerRating || 'Not observed'),
         `"${note}"`
     ].join(',');
 }
