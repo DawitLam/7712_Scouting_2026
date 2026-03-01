@@ -25,7 +25,11 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((cacheNames) => Promise.all(
             cacheNames.map((cn) => cn !== CACHE_NAME && caches.delete(cn))
-        ))
+        )).then(() => {
+            // Force all open tabs to reload so they pick up the new version immediately
+            return self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+                .then((clients) => clients.forEach((c) => c.navigate(c.url)));
+        })
     );
     self.clients.claim();
 });
