@@ -354,6 +354,20 @@ function handleScannedContent(text) {
             }
         }
 
+        // v3 CSV QR format (#SCOUT,v3,...)
+        if (text.startsWith('#SCOUT,v3,')) {
+            const imported = decodeMatchesFromQR(text);
+            if (imported && imported.length > 0) {
+                const result = mergeImportedMatches(imported);
+                showNotification(`✅ Added ${result.added} record${result.added !== 1 ? 's' : ''}${result.skipped > 0 ? `, skipped ${result.skipped} duplicate${result.skipped !== 1 ? 's' : ''}` : ''}. Total: ${result.total}`, 'success');
+                loadData();
+                stopQRScan();
+                if (currentPage === 'collectorPage') { setTimeout(() => navigateToPage('homePage'), 600); }
+                return true;
+            }
+            throw new Error('No valid records found in QR');
+        }
+
         let maybeUrl = null;
         if (/^\/?\/?[\w.-]+\//.test(text)) {
             const normalized = /^https?:\/\//i.test(text) ? text : `https://${text.replace(/^\/+/, '')}`;
