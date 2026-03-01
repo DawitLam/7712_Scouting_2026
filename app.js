@@ -563,7 +563,7 @@ function submitMatch(event) {
     const form = document.getElementById('matchForm');
     const formData = new FormData(form);
     const matchData = {
-        matchNumber: parseInt(formData.get('matchNumber')),
+        matchNumber: (formData.get('matchNumber') || '').trim().toUpperCase(),
         teamNumber: parseInt(formData.get('teamNumber')),
         location: (formData.get('location') || '').trim(),
         alliance: formData.get('alliance'),
@@ -896,13 +896,16 @@ async function generateQR(text, size = 300) {
 
 function prefixForQR(csvText) { return `TEAM7712CSV\n${csvText}`; }
 
+// CSV headers for QR payloads (v3 format)
+const QR_CSV_HEADERS = 'Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes';
+
 function encodeMatchRecord(match) {
-    const note = (match.notes || '').replace(/\|/g, ';').replace(/\n/g, ' ').substring(0, 120);
-    // REBUILT 2026 v2.4 format
+    // v3 format: CSV row (comma-separated, notes quoted)
+    const note = (match.notes || '').replace(/"/g, '""').replace(/\n/g, ' ').substring(0, 120);
     return [
-        match.matchNumber || 0,
+        match.matchNumber || '',
         match.teamNumber || 0,
-        (match.alliance || 'red')[0],
+        match.alliance || 'red',
         match.scoutName || '',
         match.location || '',
         match.startPosition || 'Not recorded',
@@ -913,19 +916,24 @@ function encodeMatchRecord(match) {
         match.shootingStyle || 'Not observed',
         match.navigation || 'Not observed',
         match.teleopTower || 'None',
-        (match.playedDefense === 'Yes' ? 'Y' : 'N'),
+        match.playedDefense || 'No',
         match.defenseEffectiveness || 'Not applicable',
         match.foulsObserved || 'None',
         match.robotStatus || 'Worked full match',
         match.consistencyRating || 'Reliable',
         match.humanPlayerTeam || '',
         match.humanPlayerRating || 'Not observed',
-        note
-    ].join('|');
+        `"${note}"`
+    ].join(',');
 }
 
 function buildQRPayload(lines, chunkIndex, totalChunks) {
-    return `T7712|v2|${chunkIndex}|${totalChunks}|${lines.join('\n')}`;
+    // v3 format: CSV with metadata header; chunk 1 includes column headers
+    const meta = `#SCOUT,v3,${chunkIndex},${totalChunks}`;
+    if (chunkIndex === 1) {
+        return `${meta}\n${QR_CSV_HEADERS}\n${lines.join('\n')}`;
+    }
+    return `${meta}\n${lines.join('\n')}`;
 }
 
 function encodeMatchesForQRChunks(matches, maxChars = QR_MAX_PAYLOAD_CHARS) {
@@ -938,7 +946,54 @@ function encodeMatchesForQRChunks(matches, maxChars = QR_MAX_PAYLOAD_CHARS) {
     });
 }
 
+function decodeCSVMatchLine(line) {
+    // Parse a CSV line with possible quoted fields
+    const parts = [];
+    let inQuote = false, cur = '';
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') { inQuote = !inQuote; }
+        else if (ch === ',' && !inQuote) { parts.push(cur); cur = ''; }
+        else { cur += ch; }
+    }
+    parts.push(cur);
+    if (parts.length < 15) return null;
+    return {
+        matchNumber: parts[0] || '',
+        teamNumber: parseInt(parts[1], 10) || 0,
+        alliance: (parts[2] || 'red').toLowerCase(),
+        scoutName: parts[3] || '',
+        location: parts[4] || '',
+        startPosition: parts[5] || 'Not recorded',
+        autoScoringMethod: parts[6] || 'None',
+        autoFuelCategory: parts[7] || 'None',
+        autoTower: parts[8] || 'None',
+        teleopFuelCategory: parts[9] || 'None',
+        shootingStyle: parts[10] || 'Not observed',
+        navigation: parts[11] || 'Not observed',
+        teleopTower: parts[12] || 'None',
+        playedDefense: parts[13] || 'No',
+        defenseEffectiveness: parts[14] || 'Not applicable',
+        foulsObserved: parts[15] || 'None',
+        robotStatus: parts[16] || 'Worked full match',
+        consistencyRating: parts[17] || 'Reliable',
+        humanPlayerTeam: parts[18] || '',
+        humanPlayerRating: parts[19] || 'Not observed',
+        notes: parts[20] || '',
+        timestamp: new Date().toISOString(),
+        id: Date.now() + Math.random()
+    };
+}
+
 function decodeMatchesFromQR(qrText) {
+    // New v3 CSV format
+    if (qrText.startsWith('#SCOUT,v3,')) {
+        const lines = qrText.split('\n').filter(l => l.trim());
+        // Skip metadata row and optional header row
+        const dataLines = lines.filter(l => !l.startsWith('#SCOUT,') && !l.startsWith('Match,'));
+        return dataLines.map(decodeCSVMatchLine).filter(Boolean);
+    }
+    // Legacy pipe format (T7712|v2|...)
     if (!qrText.startsWith('T7712|')) return null;
     const payload = qrText.substring(6);
 
@@ -967,7 +1022,7 @@ function decodeMatchLine(line) {
     if (v === 4) {
         // v2.4 format: 0=match,1=team,2=alliance,3=scout,4=location,5=startPos,6=autoScoringMethod,7=autoFuel,8=autoTower,9=teleopFuel,10=shootingStyle,11=nav,12=teleopTower,13=defense,14=defenseEff,15=fouls,16=status,17=consistency,18=hpTeam,19=hpRating,20+=notes
         return {
-            matchNumber: parseInt(parts[0], 10) || 0,
+            matchNumber: parts[0] || '',
             teamNumber: parseInt(parts[1], 10) || 0,
             alliance: parts[2] === 'r' ? 'red' : 'blue',
             scoutName: parts[3] || '',
@@ -999,7 +1054,7 @@ function decodeMatchLine(line) {
     const o = hasStartPos ? 1 : 0;
     
     return {
-        matchNumber: parseInt(parts[0], 10) || 0,
+        matchNumber: parts[0] || '',
         teamNumber: parseInt(parts[1], 10) || 0,
         alliance: parts[2] === 'r' ? 'red' : 'blue',
         scoutName: parts[3] || '',
@@ -1210,7 +1265,7 @@ function parseCSVData(csvText) {
         const timestamp = getValue('Timestamp') || new Date().toISOString();
         const notes = getValue('Notes') || '';
         return {
-            matchNumber: toNumber(getValue('Match')),
+            matchNumber: getValue('Match') || '',
             teamNumber: toNumber(getValue('Team')),
             alliance: (getValue('Alliance') || '').toLowerCase(),
             scoutName: getValue('Scout') || '',
@@ -1409,8 +1464,8 @@ async function renderOfflineQRChunk() {
         img.src = qrUrl;
         titleEl.textContent = 'Scan to Import Data (Offline)';
         instructionsEl.textContent = currentQRChunks.length > 1
-            ? 'Each QR = one match. Collector scans each one.'
-            : 'Scan this QR with Collect (QR) on the collector device.';
+            ? 'Scan each QR code in order (1 → ' + currentQRChunks.length + '). After scanning, choose “Add Data”.'
+            : 'Scan this QR with “Collect (QR)” → “Scan QR From Image” on another device.';
         downloadBtn.disabled = false;
     } catch (error) {
         console.error('QR generation error:', error);
