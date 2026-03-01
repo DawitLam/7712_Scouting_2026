@@ -1464,8 +1464,8 @@ async function renderOfflineQRChunk() {
         img.src = qrUrl;
         titleEl.textContent = 'Scan to Import Data (Offline)';
         instructionsEl.textContent = currentQRChunks.length > 1
-            ? 'Each QR = one match. Collector scans each one.'
-            : 'Scan this QR with Collect (QR) on the collector device.';
+            ? 'Scan each QR code in order (1 → ' + currentQRChunks.length + '). After scanning, choose “Add Data”.'
+            : 'Scan this QR with “Collect (QR)” → “Scan QR From Image” on another device.';
         downloadBtn.disabled = false;
     } catch (error) {
         console.error('QR generation error:', error);
