@@ -1670,7 +1670,20 @@ iz.addEventListener('drop', function(e) {
 function importFromPaste() {
     var text = document.getElementById('pasteArea').value.trim();
     if (!text) return;
-    parseCSV(text); updateUI(); document.getElementById('importZone').style.display = 'none';
+    // Handle #SCOUT,v3 QR format (one or multiple chunks pasted together)
+    if (text.indexOf('#SCOUT,v3,') !== -1) {
+        var lines = text.split(/\r?\n/).filter(function(l) { return l.trim(); });
+        var dataLines = lines.filter(function(l) {
+            return !l.startsWith('#SCOUT,') && !l.startsWith('Match,Team,');
+        });
+        if (dataLines.length === 0) { showToast('No data rows found in pasted text', 'error'); return; }
+        var csvText = 'Type,Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes,Timestamp\n'
+            + dataLines.map(function(l) { return 'Match,' + l; }).join('\n');
+        appendCSVText(csvText);
+    } else {
+        parseCSV(text); updateUI();
+    }
+    document.getElementById('importZone').style.display = 'none';
 }
 
 /* ── QR Scanner (Bluetooth/USB) auto-import ── */
@@ -1691,8 +1704,9 @@ function importFromPaste() {
                     return !l.startsWith('#SCOUT,') && !l.startsWith('Match,');
                 });
                 if (dataLines.length === 0) throw new Error('No data rows found in QR');
-                // Build a proper CSV with headers for parseCSV
-                var csvText = 'Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes,Timestamp\n' + dataLines.join('\n');
+                // Build a proper CSV with headers for parseCSV — Type column required
+                var csvText = 'Type,Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes,Timestamp\n'
+                    + dataLines.map(function(l) { return 'Match,' + l; }).join('\n');
                 appendCSVText(csvText);
                 var meta = lines[0].split(',');
                 var chunk = meta[2], total = meta[3];
