@@ -757,40 +757,38 @@ function loadData() {
 function generateCSV() {
     const matches = getLocalMatches();
     const pitScouts = getLocalPitScouts();
+    const q = (v) => `"${String(v || '').replace(/"/g, '""')}"`;
     
     let csv = '';
     
     // Match Data CSV
     if (matches.length > 0) {
         const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','StartPosition','AutoScoringMethod','AutoFuelResult','AutoTower','TeleopFuelScored','ShootingStyle','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','HumanPlayerTeam','HumanPlayerRating','Notes','Timestamp'];
-        const matchRows = matches.map(m => {
-            const safeNotes = (m.notes || '').replace(/"/g, '""');
-            return [
+        const matchRows = matches.map(m => [
                 'Match',
-                m.matchNumber,
-                m.teamNumber,
-                m.alliance,
-                m.scoutName,
-                m.location || '',
-                m.startPosition || 'Not recorded',
-                m.autoScoringMethod || 'None',
-                m.autoFuelCategory || 'None',
-                m.autoTower || 'None',
-                m.teleopFuelCategory || 'None',
-                m.shootingStyle || 'Not observed',
-                m.navigation || 'Not observed',
-                m.teleopTower || 'None',
-                m.playedDefense,
-                m.defenseEffectiveness || 'Not applicable',
-                m.foulsObserved || 'None',
-                m.robotStatus || 'Worked full match',
-                m.consistencyRating || 'Reliable',
-                m.humanPlayerTeam || '',
-                m.humanPlayerRating || 'Not observed',
-                `"${safeNotes}"`,
-                m.timestamp
-            ].join(',');
-        });
+                q(m.matchNumber),
+                m.teamNumber || 0,
+                q(m.alliance),
+                q(m.scoutName),
+                q(m.location || ''),
+                q(m.startPosition || 'Not recorded'),
+                q(m.autoScoringMethod || 'None'),
+                q(m.autoFuelCategory || 'None'),
+                q(m.autoTower || 'None'),
+                q(m.teleopFuelCategory || 'None'),
+                q(m.shootingStyle || 'Not observed'),
+                q(m.navigation || 'Not observed'),
+                q(m.teleopTower || 'None'),
+                q(m.playedDefense || 'No'),
+                q(m.defenseEffectiveness || 'Not applicable'),
+                q(m.foulsObserved || 'None'),
+                q(m.robotStatus || 'Worked full match'),
+                q(m.consistencyRating || 'Reliable'),
+                q(m.humanPlayerTeam || ''),
+                q(m.humanPlayerRating || 'Not observed'),
+                q(m.notes || ''),
+                q(m.timestamp || '')
+            ].join(','));
         csv = [matchHeaders.join(','), ...matchRows].join('\n');
     }
     
