@@ -225,7 +225,7 @@
         <div>
             <h1>&#127942; Team 7712 ACCN-Umoja &mdash; Scouting Analysis</h1>
             <div class="subtitle">REBUILT 2026 &middot; WCI Metrics (Weighted Contribution Index) &middot; Import CSV to begin
-                <span class="badge badge-gold">v1.2</span>
+                <span class="badge badge-gold">v1.3</span>
             </div>
         </div>
         <!-- Sync toolbar — appears after first data load -->
@@ -248,7 +248,7 @@
                 <label>&#128247; Bluetooth / USB QR Scanner &mdash; click here then scan</label>
                 <textarea id="qrScanInput" placeholder="Click here, then scan a QR code with your Bluetooth or USB reader, then click Import."></textarea>
                 <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
-                    <button onclick="(function(){ var s=document.getElementById('qrScanInput'); processQRScan(s.value); })()" style="padding:6px 16px;background:#238636;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Import</button>
+                    <button onclick="importQRScan()" style="padding:6px 16px;background:#238636;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Import</button>
                     <div class="scan-status" id="qrScanStatus" style="margin-top:0;">Ready &mdash; scan or paste, then click Import</div>
                 </div>
             </div>
@@ -1761,6 +1761,11 @@ function importFromPaste() {
             scanEl.parentElement.style.borderColor = '#238636';
         });
     });
+
+    // Expose import trigger to global scope so the inline onclick button can reach it
+    window.importQRScan = function() {
+        processQRScan(scanEl.value);
+    };
 })();
 
 document.getElementById('appendFileInput').addEventListener('change', function(e) {
