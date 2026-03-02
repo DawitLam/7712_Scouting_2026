@@ -1604,23 +1604,24 @@ function appendCSVText(text) {
     var prevMatch = matchData.slice();
     var prevPit   = pitData.slice();
 
-    // Build dedup key sets from existing data
+    // Build dedup key sets from existing data.
+    // Use Match+Team+Alliance+Scout (not Timestamp) — QR imports have no Timestamp.
     var matchKeys = {};
     prevMatch.forEach(function(m) {
-        matchKeys[(m.Match||'') + '||' + (m.Team||'') + '||' + (m.Scout||'') + '||' + (m.Timestamp||'')] = true;
+        matchKeys[(m.Match||'') + '||' + (m.Team||'') + '||' + (m.Alliance||'') + '||' + (m.Scout||'')] = true;
     });
     var pitKeys = {};
     prevPit.forEach(function(p) {
-        pitKeys[(p.Team||'') + '||' + (p.Scout||'') + '||' + (p.Timestamp||'')] = true;
+        pitKeys[(p.Team||'') + '||' + (p.Scout||'')] = true;
     });
 
     // Parse the new CSV into temp arrays
     parseCSV(text);   // sets matchData / pitData to new values
     var newMatch = matchData.filter(function(m) {
-        return !matchKeys[(m.Match||'') + '||' + (m.Team||'') + '||' + (m.Scout||'') + '||' + (m.Timestamp||'')];
+        return !matchKeys[(m.Match||'') + '||' + (m.Team||'') + '||' + (m.Alliance||'') + '||' + (m.Scout||'')];
     });
     var newPit = pitData.filter(function(p) {
-        return !pitKeys[(p.Team||'') + '||' + (p.Scout||'') + '||' + (p.Timestamp||'')];
+        return !pitKeys[(p.Team||'') + '||' + (p.Scout||'')];
     });
 
     // Merge

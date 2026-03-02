@@ -950,13 +950,30 @@ function buildQRPayload(lines, chunkIndex, totalChunks) {
 }
 
 function encodeMatchesForQRChunks(matches, maxChars = QR_MAX_PAYLOAD_CHARS) {
-    // One QR per match — cleaner for scouts and collectors
+    // Pack as many matches as fit within maxChars per QR chunk.
+    // Chunk 1 includes the column header row; subsequent chunks do not.
     if (!matches.length) return [];
-    const total = matches.length;
-    return matches.map((match, idx) => {
-        const line = encodeMatchRecord(match);
-        return buildQRPayload([line], idx + 1, total);
-    });
+    const allLines = matches.map(encodeMatchRecord);
+    const chunkGroups = [];
+    let current = [];
+    for (let i = 0; i < allLines.length; i++) {
+        const line = allLines[i];
+        const isFirstChunk = chunkGroups.length === 0;
+        // Estimate payload size: meta (~20) + optional column header + body lines
+        const metaLen = 20;
+        const colHeaderLen = isFirstChunk ? QR_CSV_HEADERS.length + 1 : 0;
+        const bodyLen = current.reduce((s, l) => s + l.length + 1, 0) + line.length;
+        const totalLen = metaLen + colHeaderLen + bodyLen;
+        if (current.length > 0 && totalLen > maxChars) {
+            chunkGroups.push(current);
+            current = [line];
+        } else {
+            current.push(line);
+        }
+    }
+    if (current.length > 0) chunkGroups.push(current);
+    const total = chunkGroups.length;
+    return chunkGroups.map((lines, idx) => buildQRPayload(lines, idx + 1, total));
 }
 
 function decodeCSVMatchLine(line) {
@@ -1372,9 +1389,11 @@ async function showQRForOffline() {
         return;
     }
 
-    // Store matches reference for pager labels
-    window.currentQRMatches = matches;
-    const firstLabel = `Match ${matches[0].matchNumber} \u2014 Team ${matches[0].teamNumber}`;
+    // Build per-chunk match-count metadata for display in the pager
+    window.currentQRChunkRecordCounts = qrChunks.map(chunk => {
+        const lines = chunk.split('\n').filter(l => l.trim());
+        return lines.filter(l => !l.startsWith('#SCOUT,') && !l.startsWith('Match,Team,')).length;
+    });
 
     closeModal();
 
@@ -1384,24 +1403,25 @@ async function showQRForOffline() {
         currentQRChunkIndex = 0;
         currentQRImages = new Array(qrChunks.length).fill(null);
 
+        const chunkWord = qrChunks.length === 1 ? 'QR code' : 'QR codes';
         const modal = document.createElement('div');
         modal.className = 'share-modal';
         modal.innerHTML = `
             <div class="share-content">
                 <h2 style="color: #DAA520; font-size: 28px;">Offline QR Codes</h2>
-                <p style="font-size: 18px;"><strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong> \u2014 one QR per match</p>
+                <p style="font-size: 18px;"><strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong> \u2014 <strong>${qrChunks.length}</strong> ${chunkWord}</p>
                 <div class="qr-container">
                     <h3 style="color: #DAA520; font-size: 22px;">Preparing QR Code\u2026</h3>
                     <div id="qrcode" style="min-height: 320px; display: flex; align-items: center; justify-content: center;">
                         <div style="color: #DAA520; font-size: 18px;">\u23f3 Rendering\u2026</div>
                     </div>
-                    <p id="qrMatchLabel" style="margin-top: 8px; color: #DAA520; font-size: 16px; font-weight: bold;">${firstLabel}</p>
+                    <p id="qrMatchLabel" style="margin-top: 8px; color: #DAA520; font-size: 16px; font-weight: bold;"></p>
                     <p id="qrPager" style="margin-top: 4px; color: #ccc; font-size: 14px;">QR 1 of ${qrChunks.length}</p>
                     <p id="qrInstructions" style="margin-top: 8px; color: #ccc; font-size: 14px;"></p>
                 </div>
                 <div class="share-buttons">
-                    <button id="qrPrevBtn" class="share-btn" onclick="changeQRChunk(-1)" disabled>\u25c0 Prev Match</button>
-                    <button id="qrNextBtn" class="share-btn" onclick="changeQRChunk(1)" ${qrChunks.length > 1 ? '' : 'disabled'}>Next Match \u25b6</button>
+                    <button id="qrPrevBtn" class="share-btn" onclick="changeQRChunk(-1)" disabled>\u25c0 Prev QR</button>
+                    <button id="qrNextBtn" class="share-btn" onclick="changeQRChunk(1)" ${qrChunks.length > 1 ? '' : 'disabled'}>Next QR \u25b6</button>
                     <button class="share-btn download" onclick="downloadQR()" disabled>Save QR Image</button>
                     <button class="share-btn close" onclick="closeModal()">Close</button>
                 </div>
@@ -1438,11 +1458,11 @@ async function renderOfflineQRChunk() {
     if (!qrContainer || !titleEl || !pagerEl || !downloadBtn) return;
 
     pagerEl.textContent = `QR ${currentQRChunkIndex + 1} of ${currentQRChunks.length}`;
-    // Update match label
+    // Update chunk label: show how many match records are packed into this QR
     const matchLabelEl = modal.querySelector('#qrMatchLabel');
-    if (matchLabelEl && window.currentQRMatches && window.currentQRMatches[currentQRChunkIndex]) {
-        const m = window.currentQRMatches[currentQRChunkIndex];
-        matchLabelEl.textContent = `Match ${m.matchNumber} — Team ${m.teamNumber}`;
+    if (matchLabelEl && window.currentQRChunkRecordCounts) {
+        const n = window.currentQRChunkRecordCounts[currentQRChunkIndex] || 0;
+        matchLabelEl.textContent = `${n} match record${n !== 1 ? 's' : ''} in this QR`;
     }
     if (prevBtn) prevBtn.disabled = currentQRChunkIndex === 0;
     if (nextBtn) nextBtn.disabled = currentQRChunkIndex === currentQRChunks.length - 1;
