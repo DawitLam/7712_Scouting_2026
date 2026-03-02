@@ -225,7 +225,7 @@
         <div>
             <h1>&#127942; Team 7712 ACCN-Umoja &mdash; Scouting Analysis</h1>
             <div class="subtitle">REBUILT 2026 &middot; WCI Metrics (Weighted Contribution Index) &middot; Import CSV to begin
-                <span class="badge badge-gold">v1.3</span>
+                <span class="badge badge-gold">v1.4</span>
             </div>
         </div>
         <!-- Sync toolbar — appears after first data load -->
@@ -1677,11 +1677,31 @@ iz.addEventListener('drop', function(e) {
     reader.readAsText(file);
 });
 
+/**
+ * Normalize QR payload text before parsing.
+ * Fixes two known issues with certain QR scanners / paste scenarios:
+ *   1. È (U+00C8) used instead of " — seen with some USB/Bluetooth HID keyboards
+ *   2. Missing \n between meta-header, column-header, and data rows
+ */
+function normalizeQRText(text) {
+    // 1) Replace È (U+00C8) and curly/smart quotes with standard double-quote
+    text = text.replace(/\u00C8/g, '"');
+    text = text.replace(/[\u201C\u201D]/g, '"');
+    // 2) Insert \n after "#SCOUT,v3,X,Y" meta token if one is missing
+    text = text.replace(/(#SCOUT,v3,\d+,\d+)(?=[^\n])/, '$1\n');
+    // 3) Insert \n between the column-header row and first data row when missing.
+    //    The QR column header always ends with ",Notes" (no trailing comma on last col).
+    //    A data row always starts with a quoted or unquoted match-number, never a letter-word.
+    text = text.replace(/(,Notes)(?=[^\n,])/, '$1\n');
+    return text;
+}
+
 function importFromPaste() {
     var text = document.getElementById('pasteArea').value.trim();
     if (!text) return;
     // Handle #SCOUT,v3 QR format (one or multiple chunks pasted together)
     if (text.indexOf('#SCOUT,v3,') !== -1) {
+        text = normalizeQRText(text);
         var lines = text.split(/\r?\n/).filter(function(l) { return l.trim(); });
         var dataLines = lines.filter(function(l) {
             return !l.startsWith('#SCOUT,') && !l.startsWith('Match,Team,');
@@ -1707,9 +1727,10 @@ function importFromPaste() {
         try {
             // v3 CSV QR format
             if (text.startsWith('#SCOUT,v3,')) {
+                text = normalizeQRText(text);
                 var lines = text.split(/\r?\n/).filter(function(l) { return l.trim(); });
                 var dataLines = lines.filter(function(l) {
-                    return !l.startsWith('#SCOUT,') && !l.startsWith('Match,');
+                    return !l.startsWith('#SCOUT,') && !l.startsWith('Match,Team,');
                 });
                 // Silently wait — scanner is still typing remaining lines
                 if (dataLines.length === 0) return;
