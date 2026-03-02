@@ -208,6 +208,14 @@
         .import-zone .or-divider { color: #484f58; margin: 12px 0 4px; font-size: 12px; }
         .append-file-label { padding: 7px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; background: #30363d; color: #e6edf3; }
         .append-file-label:hover { background: #484f58; }
+        /* Append QR modal */
+        .aqr-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.72); z-index:9999; align-items:center; justify-content:center; }
+        .aqr-overlay.open { display:flex; }
+        .aqr-box { background:#161b22; border:1px solid #30363d; border-radius:14px; padding:24px; width:min(520px,94vw); }
+        .aqr-box h3 { margin:0 0 6px; color:#e6edf3; font-size:16px; }
+        .aqr-box p { margin:0 0 14px; color:#8b949e; font-size:13px; }
+        .aqr-box textarea { width:100%; height:130px; background:#0d1117; border:1px solid #30363d; color:#e6edf3; border-radius:8px; padding:10px; font-family:monospace; font-size:12px; resize:vertical; box-sizing:border-box; }
+        .aqr-actions { display:flex; gap:10px; margin-top:12px; justify-content:flex-end; }
         .toast { position: fixed; bottom: 24px; right: 24px; background: #238636; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 9999; opacity: 0; transform: translateY(10px); transition: opacity 0.25s, transform 0.25s; pointer-events: none; }
         .toast.show { opacity: 1; transform: translateY(0); }
         .toast.warn { background: #9a6700; }
@@ -219,7 +227,7 @@
         <div>
             <h1>&#127942; Team 7712 ACCN-Umoja &mdash; Scouting Analysis</h1>
             <div class="subtitle">REBUILT 2026 &middot; WCI Metrics (Weighted Contribution Index) &middot; Import CSV to begin
-                <span class="badge badge-gold">v1.6</span>
+                <span class="badge badge-gold">v1.8</span>
             </div>
         </div>
         <!-- Sync toolbar — appears after first data load -->
@@ -227,10 +235,24 @@
             <span class="sync-info" id="syncInfo"></span>
             <button class="btn-sm btn-green" onclick="syncFromApp()" title="Re-read all data from this browser's scouting app storage">&#8635; Sync from App</button>
             <label class="append-file-label" title="Append more data from a CSV file without losing existing records">+ Append CSV<input type="file" id="appendFileInput" accept=".csv,.txt" style="display:none"></label>
+            <button class="btn-sm btn-green" onclick="openAppendQR()" title="Paste QR payloads to add more match records">+ Paste QR</button>
             <button class="btn-sm btn-gray" onclick="showImportZone()" title="Load a completely new dataset">&#8635; Change Data</button>
         </div>
     </div>
     <div class="toast" id="toast"></div>
+
+    <!-- Append QR overlay -->
+    <div class="aqr-overlay" id="aqrOverlay" onclick="closeAppendQR(event)">
+        <div class="aqr-box">
+            <h3>&#128247; Paste QR Payload(s)</h3>
+            <p>Paste one or more QR payloads below. Duplicate records are automatically skipped.</p>
+            <textarea id="aqrPaste" placeholder="Paste QR payload(s) or CSV data here..."></textarea>
+            <div class="aqr-actions">
+                <button class="btn-sm btn-gray" onclick="closeAppendQR()">Cancel</button>
+                <button class="btn-sm btn-green" onclick="doAppendQR()">Append</button>
+            </div>
+        </div>
+    </div>
 
     <div class="container">
         <!-- Import Zone -->
@@ -272,6 +294,7 @@
             <button class="tab" data-tab="picklist">Pick List</button>
             <button class="tab" data-tab="scouts">Scout Report</button>
             <button class="tab" data-tab="schedule">&#128197; Schedule</button>
+            <button class="tab" data-tab="dict">&#128216; Data Dictionary</button>
         </div>
 
         <!-- WCI Rankings Tab -->
@@ -375,9 +398,301 @@
             <div id="schedStatus"></div>
             <div id="schedContent"></div>
         </div>
-    </div>
 
-<script>
+        <!-- Data Dictionary Tab -->
+        <div class="tab-content" id="tab-dict" style="max-width:900px;">
+            <h2 style="margin-bottom:4px;">&#128216; Data Dictionary</h2>
+            <p style="color:#8b949e;margin-bottom:24px;">Reference for all scouting fields, valid values, and how the analyzer computes WCI scores.</p>
+
+            <!-- Section: Match Scouting Fields -->
+            <h3 style="color:#58a6ff;border-bottom:1px solid #21262d;padding-bottom:6px;margin-bottom:12px;">Match Scouting Fields</h3>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead><tr style="color:#8b949e;text-align:left;">
+                    <th style="padding:6px 10px;border-bottom:1px solid #21262d;min-width:160px;">Field</th>
+                    <th style="padding:6px 10px;border-bottom:1px solid #21262d;">Description</th>
+                    <th style="padding:6px 10px;border-bottom:1px solid #21262d;">Valid Values</th>
+                </tr></thead>
+                <tbody>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">Match</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Match code</td>
+                        <td style="padding:7px 10px;color:#a3d977;">Q1, Q12, SF1-1, F1 …</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">Team</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Team number being scouted</td>
+                        <td style="padding:7px 10px;color:#a3d977;">Integer ≥ 1</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">Alliance</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Team's alliance colour</td>
+                        <td style="padding:7px 10px;color:#a3d977;">red &nbsp;|&nbsp; blue</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">Scout</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Scout's name</td>
+                        <td style="padding:7px 10px;color:#a3d977;">Free text</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">Location</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Competition event</td>
+                        <td style="padding:7px 10px;color:#a3d977;">ONT District Durham College Event &nbsp;|&nbsp; ONT District North Bay Event &nbsp;|&nbsp; FIRST Ontario Provincial Championship &nbsp;|&nbsp; FIRST Championship</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">StartPosition</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Robot starting position on the field</td>
+                        <td style="padding:7px 10px;color:#a3d977;">Not recorded &nbsp;|&nbsp; Left &nbsp;|&nbsp; Center &nbsp;|&nbsp; Right</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">AutoScoringMethod</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">How the robot scored during Auto <em style="color:#8b949e;">(multi-select, comma-separated)</em></td>
+                        <td style="padding:7px 10px;color:#a3d977;">Scored at spot &nbsp;|&nbsp; Moved and shot &nbsp;|&nbsp; Collected from station &nbsp;|&nbsp; Collected from depot</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">AutoFuelResult</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Outcome of FUEL scoring in Auto</td>
+                        <td style="padding:7px 10px;color:#a3d977;">None &nbsp;|&nbsp; All preload scored &nbsp;|&nbsp; Some preload scored &nbsp;|&nbsp; All preload missed &nbsp;|&nbsp; Added more fuel</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">AutoTower</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">TOWER climb attempted during Auto</td>
+                        <td style="padding:7px 10px;color:#a3d977;">None &nbsp;|&nbsp; Level 1 (15 pts)</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">TeleopFuelScored</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Quantity of FUEL scored in Teleop</td>
+                        <td style="padding:7px 10px;color:#a3d977;">None &nbsp;|&nbsp; 20+ &nbsp;|&nbsp; 10-19 &nbsp;|&nbsp; 5-9 &nbsp;|&nbsp; &lt;5</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">ShootingStyle</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">How the robot positions itself to shoot</td>
+                        <td style="padding:7px 10px;color:#a3d977;">Not observed &nbsp;|&nbsp; Mostly shoots while moving &nbsp;|&nbsp; Mostly stops and shoots &nbsp;|&nbsp; Mostly shoots from far &nbsp;|&nbsp; Mostly shoots close to HUB</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">Navigation</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">How the robot moves around the field</td>
+                        <td style="padding:7px 10px;color:#a3d977;">Not observed &nbsp;|&nbsp; Trench runner &nbsp;|&nbsp; Goes over BUMPS &nbsp;|&nbsp; Both &nbsp;|&nbsp; Avoids obstacles</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">TeleopTower</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">TOWER climb in Teleop / Endgame</td>
+                        <td style="padding:7px 10px;color:#a3d977;">None &nbsp;|&nbsp; Level 1 (off ground, 10 pts) &nbsp;|&nbsp; Level 2 (BUMPERS above LOW RUNG, 20 pts) &nbsp;|&nbsp; Level 3 (BUMPERS above MID RUNG, 30 pts)</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">PlayedDefense</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Did the robot play defense this match?</td>
+                        <td style="padding:7px 10px;color:#a3d977;">No &nbsp;|&nbsp; Yes</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">DefenseEffectiveness</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">How effective the defense was (if played)</td>
+                        <td style="padding:7px 10px;color:#a3d977;">Not applicable &nbsp;|&nbsp; High &nbsp;|&nbsp; Medium &nbsp;|&nbsp; Low</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">FoulsObserved</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Penalties/fouls seen during the match</td>
+                        <td style="padding:7px 10px;color:#a3d977;">None &nbsp;|&nbsp; Minor (1–2 fouls) &nbsp;|&nbsp; Major (3+ fouls or tech foul)</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">RobotStatus</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Did the robot work? <em style="color:#8b949e;">Disabled/No show zeros out all scoring</em></td>
+                        <td style="padding:7px 10px;color:#a3d977;">Worked full match &nbsp;|&nbsp; Partial breakdown &nbsp;|&nbsp; Disabled &nbsp;|&nbsp; No show</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">ConsistencyRating</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Scout's overall reliability assessment of the robot this match</td>
+                        <td style="padding:7px 10px;color:#a3d977;">Reliable &nbsp;|&nbsp; Average &nbsp;|&nbsp; Unreliable</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">HumanPlayerTeam</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Team number of the alliance's human player</td>
+                        <td style="padding:7px 10px;color:#a3d977;">Integer ≥ 1 (optional)</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">HumanPlayerRating</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">FUEL feeding accuracy &amp; speed of human player</td>
+                        <td style="padding:7px 10px;color:#a3d977;">Not observed &nbsp;|&nbsp; Good &nbsp;|&nbsp; Average &nbsp;|&nbsp; Poor</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:7px 10px;"><code style="color:#e6edf3;">Notes</code></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Free-text scout observations</td>
+                        <td style="padding:7px 10px;color:#a3d977;">Any text</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- Section: WCI Scoring -->
+            <h3 style="color:#58a6ff;border-bottom:1px solid #21262d;padding-bottom:6px;margin:28px 0 12px;">WCI Scoring — How Points Are Calculated</h3>
+            <p style="color:#8b949e;margin-bottom:12px;">WCI (Weighted Contribution Index) is the analyzer's internal point estimate per match. It is <strong style="color:#e6edf3;">not</strong> the official FRC score — it measures how much a robot contributed based on scouted observations.</p>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead><tr style="color:#8b949e;text-align:left;">
+                    <th style="padding:6px 10px;border-bottom:1px solid #21262d;">Phase</th>
+                    <th style="padding:6px 10px;border-bottom:1px solid #21262d;">Condition</th>
+                    <th style="padding:6px 10px;border-bottom:1px solid #21262d;text-align:right;">WCI pts</th>
+                </tr></thead>
+                <tbody>
+                    <tr style="border-bottom:1px solid #161b22;"><td colspan="3" style="padding:6px 10px;color:#3fb950;font-weight:700;">Auto</td></tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;">AutoScoringMethod</td>
+                        <td style="padding:5px 10px;">Moved and shot + Scored at spot</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">+4</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
+                        <td style="padding:5px 10px;">Moved and shot (only)</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">+3</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
+                        <td style="padding:5px 10px;">Scored at spot (only)</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">+1.5</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
+                        <td style="padding:5px 10px;">Collected from station or depot</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">+0.5</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
+                        <td style="padding:5px 10px;">Any method used (activity bonus)</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">+1</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;">AutoFuelResult</td>
+                        <td style="padding:5px 10px;">Added more fuel</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">+7</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
+                        <td style="padding:5px 10px;">All preload scored</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">+5</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
+                        <td style="padding:5px 10px;">Some preload scored</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">+2.5</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;">AutoTower</td>
+                        <td style="padding:5px 10px;">Level 1 climb in Auto</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">+1</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;"><td colspan="3" style="padding:6px 10px;color:#3fb950;font-weight:700;">Teleop</td></tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;">TeleopFuelScored</td>
+                        <td style="padding:5px 10px;">20+</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">10</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
+                        <td style="padding:5px 10px;">10–19</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">7</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
+                        <td style="padding:5px 10px;">5–9</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">4</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
+                        <td style="padding:5px 10px;">&lt;5</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">2</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;">ShootingStyle <em style="font-style:italic;font-size:11px;">multiplier</em></td>
+                        <td style="padding:5px 10px;">Shoots while moving → ×1.15 &nbsp;|&nbsp; Shoots close to HUB → ×1.1</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">×bonus</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;">Navigation</td>
+                        <td style="padding:5px 10px;">Both zones (versatile)</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">+0.5</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;"><td colspan="3" style="padding:6px 10px;color:#3fb950;font-weight:700;">Endgame</td></tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;">TeleopTower</td>
+                        <td style="padding:5px 10px;">Level 3</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">6</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
+                        <td style="padding:5px 10px;">Level 2</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">4</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
+                        <td style="padding:5px 10px;">Level 1</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">2</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;"><td colspan="3" style="padding:6px 10px;color:#3fb950;font-weight:700;">Consistency multiplier (applied to total each match)</td></tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;">ConsistencyRating</td>
+                        <td style="padding:5px 10px;">Reliable → ×1.0 &nbsp;|&nbsp; Average → ×0.65 &nbsp;|&nbsp; Unreliable → ×0.2</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">×mult</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;">RobotStatus</td>
+                        <td style="padding:5px 10px;">Disabled or No show → all scores zeroed</td>
+                        <td style="padding:5px 10px;text-align:right;color:#f85149;">×0</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- Section: Analyzer Metrics -->
+            <h3 style="color:#58a6ff;border-bottom:1px solid #21262d;padding-bottom:6px;margin:28px 0 12px;">Analyzer Metrics</h3>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead><tr style="color:#8b949e;text-align:left;">
+                    <th style="padding:6px 10px;border-bottom:1px solid #21262d;min-width:120px;">Metric</th>
+                    <th style="padding:6px 10px;border-bottom:1px solid #21262d;">Meaning</th>
+                </tr></thead>
+                <tbody>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><strong style="color:#e6edf3;">Total WCI</strong></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Average (Auto + Teleop + Endgame) WCI across all scouted matches for this team.</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><strong style="color:#e6edf3;">&Sigma; VAR</strong></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Standard deviation of the team's per-match WCI. Lower = more predictable. A team scoring 5-5-5 is a safer pick than 1-5-9.</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><strong style="color:#e6edf3;">Trend</strong></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Recent-half average vs early-half average. Positive = improving across the event; negative = declining.</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><strong style="color:#e6edf3;">CONF</strong></td>
+                        <td style="padding:7px 10px;color:#8b949e;">
+                            Data confidence: <span style="color:#3fb950;">HIGH</span> ≥ 0.7 &nbsp;|&nbsp; <span style="color:#DAA520;">MED</span> ≥ 0.4 &nbsp;|&nbsp; <span style="color:#f85149;">LOW</span> &lt; 0.4.<br>
+                            Formula: 45% match count (8+ = full) + 30% scout diversity (3+ scouts = full) + 25% variance (low variance boosts it).
+                        </td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><strong style="color:#e6edf3;">Tier</strong></td>
+                        <td style="padding:7px 10px;color:#8b949e;">
+                            Percentile rank within the current dataset:<br>
+                            <span style="color:#58a6ff;">S</span> top 5% &nbsp;&bull;&nbsp;
+                            <span style="color:#3fb950;">A</span> top 6–20% &nbsp;&bull;&nbsp;
+                            <span style="color:#a3d977;">B</span> top 21–50% &nbsp;&bull;&nbsp;
+                            <span style="color:#8b949e;">C</span> 51–80% &nbsp;&bull;&nbsp;
+                            <span style="color:#f85149;">D</span> bottom 20%
+                        </td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:7px 10px;"><strong style="color:#e6edf3;">Role</strong></td>
+                        <td style="padding:7px 10px;color:#8b949e;">
+                            Auto-detected from scoring pattern:<br>
+                            <span style="color:#f85149;">&#128737; Defender</span> — plays defense ≥ 40% of matches with good effectiveness<br>
+                            <span style="color:#a3d977;">&#11014; Climber</span> — endgame is ≥ 35% of total WCI and avg endgame ≥ 3 pts<br>
+                            <span style="color:#e6edf3;">&#11088; All-Round</span> — avg auto ≥ 3, teleop ≥ 4, endgame ≥ 2<br>
+                            <span style="color:#DAA520;">&#127919; Scorer</span> — default (primarily a shooter/fuel scorer)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:7px 10px;"><strong style="color:#e6edf3;">N</strong></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Number of scouted matches for this team. Tiers and confidence improve with more data.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 'use strict';
 
 /* ================================================================
@@ -1621,6 +1936,33 @@ function appendCSVText(text) {
 function showImportZone() {
     document.getElementById('importZone').style.display = '';
     document.getElementById('syncToolbar').classList.remove('visible');
+}
+function openAppendQR() {
+    document.getElementById('aqrPaste').value = '';
+    document.getElementById('aqrOverlay').classList.add('open');
+    setTimeout(function() { document.getElementById('aqrPaste').focus(); }, 80);
+}
+function closeAppendQR(e) {
+    if (e && e.target !== document.getElementById('aqrOverlay')) return;
+    document.getElementById('aqrOverlay').classList.remove('open');
+}
+function doAppendQR() {
+    var text = document.getElementById('aqrPaste').value.trim();
+    if (!text) return;
+    if (text.indexOf('#SCOUT,v3,') !== -1) {
+        text = normalizeQRText(text);
+        var lines = text.split(/\r?\n/).filter(function(l) { return l.trim(); });
+        var dataLines = lines.filter(function(l) {
+            return !l.startsWith('#SCOUT,') && !l.startsWith('Match,Team,');
+        });
+        if (dataLines.length === 0) { showToast('No data rows found', 'error'); return; }
+        var csvText = 'Type,Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes,Timestamp\n'
+            + dataLines.map(function(l) { return 'Match,' + l; }).join('\n');
+        appendCSVText(csvText);
+    } else {
+        appendCSVText(text);
+    }
+    document.getElementById('aqrOverlay').classList.remove('open');
 }
 
 /* Small toast notification */
