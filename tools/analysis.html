@@ -465,16 +465,19 @@ function csvLine(line) {
 function pointsAuto(m) {
     var pts = 0;
     var method = (m.AutoScoringMethod || '');
-    if (method.indexOf('Both goals') !== -1) pts += 4;
-    else if (method.indexOf('High goal') !== -1) pts += 3;
-    else if (method.indexOf('Low goal') !== -1) pts += 1.5;
+    // Form values: 'Scored at spot', 'Moved and shot', 'Collected from station', 'Collected from depot' (multi-select, joined with ', ')
+    if (method.indexOf('Moved and shot') !== -1 && method.indexOf('Scored at spot') !== -1) pts += 4;
+    else if (method.indexOf('Moved and shot') !== -1) pts += 3;
+    else if (method.indexOf('Scored at spot') !== -1) pts += 1.5;
+    if (method.indexOf('Collected') !== -1) pts += 0.5;
     var fuel = (m.AutoFuelResult || 'None');
-    if (fuel.indexOf('All scored') !== -1) pts += 5;
-    else if (fuel.indexOf('Most scored') !== -1) pts += 3.5;
-    else if (fuel.indexOf('Some') !== -1) pts += 2;
-    else if (fuel !== 'None' && fuel !== 'Missed') pts += 1;
-    if ((m.AutoTower || '').indexOf('Retrieved') !== -1) pts += 1;
-    if (method !== 'None' && method !== '') pts += 1;
+    // Form values: 'All preload scored', 'Some preload scored', 'All preload missed', 'Added more fuel'
+    if (fuel.indexOf('Added more fuel') !== -1) pts += 7;
+    else if (fuel === 'All preload scored' || fuel.indexOf('All scored') !== -1) pts += 5;
+    else if (fuel === 'Some preload scored' || fuel.indexOf('Most scored') !== -1 || fuel.indexOf('Some scored') !== -1) pts += 2.5;
+    // Form value for AutoTower: 'Level 1' = climbed in auto
+    if ((m.AutoTower || '').indexOf('Level') !== -1 || (m.AutoTower || '').indexOf('Retrieved') !== -1) pts += 1;
+    if (method && method !== 'None') pts += 1;
     return pts;
 }
 function pointsTeleop(m) {
@@ -484,7 +487,10 @@ function pointsTeleop(m) {
     else if (fuel.indexOf('5-9') !== -1) pts = 4;
     else if (fuel.indexOf('<5') !== -1 || fuel.indexOf('Less') !== -1) pts = 2;
     var style = (m.ShootingStyle || '');
-    if (style.toLowerCase().indexOf('high') !== -1) pts *= 1.15;
+    // Form values: 'Mostly shoots while moving', 'Mostly shoots close to HUB', 'Mostly shoots from far', 'Mostly stops and shoots'
+    if (style.indexOf('while moving') !== -1) pts *= 1.15;
+    else if (style.indexOf('close to HUB') !== -1) pts *= 1.1;
+    // Form value: 'Both' = uses both zones
     if ((m.Navigation || '').indexOf('Both') !== -1) pts += 0.5;
     return pts;
 }
@@ -498,17 +504,18 @@ function pointsEndgame(m) {
 function pointsDefense(m) {
     if (m.PlayedDefense !== 'Yes') return 0;
     var eff = (m.DefenseEffectiveness || '');
-    if (eff.indexOf('Very effective') !== -1) return 3;
-    if (eff.indexOf('Effective') !== -1) return 2;
-    if (eff.indexOf('Somewhat') !== -1) return 1;
+    // Form values: 'High', 'Medium', 'Low', 'Not applicable'
+    if (eff === 'High' || eff.indexOf('Very effective') !== -1) return 3;
+    if (eff === 'Medium' || eff.indexOf('Effective') !== -1) return 2;
+    if (eff === 'Low' || eff.indexOf('Somewhat') !== -1) return 1;
     return 0.5;
 }
 function consistencyScore(m) {
     var c = (m.ConsistencyRating || '');
-    if (c.indexOf('Very consistent') !== -1 || c === 'Reliable') return 1.0;
-    if (c.indexOf('Mostly') !== -1 || c === 'Mostly reliable') return 0.75;
-    if (c.indexOf('Inconsistent') !== -1 && c.indexOf('Very') === -1) return 0.4;
-    if (c.indexOf('Very inconsistent') !== -1 || c.indexOf('Very unreliable') !== -1) return 0.15;
+    // Form values: 'Reliable', 'Average', 'Unreliable'
+    if (c === 'Reliable' || c.indexOf('Very consistent') !== -1) return 1.0;
+    if (c === 'Average' || c.indexOf('Mostly') !== -1 || c === 'Mostly reliable') return 0.65;
+    if (c === 'Unreliable' || c.indexOf('Inconsistent') !== -1 || c.indexOf('unreliable') !== -1) return 0.2;
     return 0.5;
 }
 function isWorking(m) {
