@@ -15,15 +15,6 @@
         <link rel="stylesheet" href="/styles.css?v=20251216">
         <!-- Prefer CDN for QR generation for now (falls back to local vendor if available) -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-        <script src="/vendor/jsqr.js"></script>
-        <script>
-            // If local jsqr fails, load from CDN
-            if (typeof jsQR === 'undefined') {
-                var s = document.createElement('script');
-                s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
-                document.head.appendChild(s);
-            }
-        </script>
         <script>
             // If CDN fails to load, the local vendor file will be used as fallback
             window.addEventListener('error', (e) => {
@@ -44,7 +35,7 @@
             <img id="teamLogo" src="./team7712_logo_reefscape.png?v=20251205" alt="Team 7712 Logo" class="logo">
             <h1>Team 7712 ACCN-Umoja</h1>
             <div class="subtitle">FRC 2026 Scouting - REBUILT</div>
-            <div style="margin-top:6px; font-size:12px; color:#ccc;">Build v2.7.0</div>
+            <div style="margin-top:6px; font-size:12px; color:#ccc;">Build v2.8.0</div>
         </div>
 
         <!-- Home Page -->
@@ -97,31 +88,13 @@
 
                 <h3>Autonomous</h3>
                 <div class="form-group">
-                    <label for="startPosition">Starting Position</label>
-                    <select id="startPosition" name="startPosition">
-                        <option value="Not recorded" selected>Not recorded</option>
-                        <option value="Left">Left</option>
-                        <option value="Center">Center</option>
-                        <option value="Right">Right</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Auto Scoring Method (select all that apply)</label>
-                    <div style="display: flex; flex-direction: column; gap: 10px; padding: 8px 0;">
-                        <label style="font-size: 16px; font-weight: normal;"><input type="checkbox" name="autoScoringMethod" value="Scored at spot" style="width: auto; margin-right: 8px;"> Scored at starting spot</label>
-                        <label style="font-size: 16px; font-weight: normal;"><input type="checkbox" name="autoScoringMethod" value="Moved and shot" style="width: auto; margin-right: 8px;"> Moved and shot</label>
-                        <label style="font-size: 16px; font-weight: normal;"><input type="checkbox" name="autoScoringMethod" value="Collected from station" style="width: auto; margin-right: 8px;"> Collected FUEL from Fuel Station</label>
-                        <label style="font-size: 16px; font-weight: normal;"><input type="checkbox" name="autoScoringMethod" value="Collected from depot" style="width: auto; margin-right: 8px;"> Collected from Depot</label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Auto FUEL Result</label>
+                    <label>FUEL Scoring (Auto)</label>
                     <select id="autoFuelCategory" name="autoFuelCategory">
-                        <option value="None" selected>None</option>
-                        <option value="All preload scored">All preload scored</option>
-                        <option value="Some preload scored">Some preload scored</option>
-                        <option value="All preload missed">All preload missed</option>
-                        <option value="Added more fuel">Collected &amp; scored extra FUEL</option>
+                        <option value="Not observed" selected>Not observed yet</option>
+                        <option value="High">High - Scores many FUEL consistently</option>
+                        <option value="Medium">Medium - Scores some FUEL</option>
+                        <option value="Low">Low - Scores few FUEL</option>
+                        <option value="None">None - Does not score FUEL</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -134,34 +107,25 @@
 
                 <h3>Teleop</h3>
                 <div class="form-group">
-                    <label>FUEL Scored (Teleop)</label>
+                    <label>FUEL Scoring (Teleop)</label>
                     <select id="teleopFuelCategory" name="teleopFuelCategory">
-                        <option value="None" selected>None</option>
-                        <option value="20+">20+ FUEL scored</option>
-                        <option value="10-19">10-19 FUEL scored</option>
-                        <option value="5-9">5-9 FUEL scored</option>
-                        <option value="<5">&lt;5 FUEL scored</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="shootingStyle">Shooting Style</label>
-                    <select id="shootingStyle" name="shootingStyle">
-                        <option value="Not observed" selected>Not observed</option>
-                        <option value="Mostly shoots while moving">Mostly shoots while moving</option>
-                        <option value="Mostly stops and shoots">Mostly stops and shoots</option>
-                        <option value="Mostly shoots from far">Mostly shoots from far</option>
-                        <option value="Mostly shoots close to HUB">Mostly shoots close to HUB</option>
+                        <option value="Not observed" selected>Not observed yet</option>
+                        <option value="High">High - Scores many FUEL consistently</option>
+                        <option value="Medium">Medium - Scores some FUEL</option>
+                        <option value="Low">Low - Scores few FUEL</option>
+                        <option value="None">None - Does not score FUEL</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label for="navigation">Field Navigation</label>
                     <select id="navigation" name="navigation">
-                        <option value="Not observed" selected>Not observed</option>
-                        <option value="Trench runner">Trench runner</option>
+                        <option value="Not observed" selected>Not observed yet</option>
                         <option value="Goes over BUMPS">Goes over BUMPS</option>
-                        <option value="Both">Both (versatile)</option>
-                        <option value="Avoids obstacles">Avoids obstacles / struggles</option>
+                        <option value="Goes through TRENCHES">Goes through TRENCHES</option>
+                        <option value="Both BUMPS and TRENCHES">Both (versatile drivetrain)</option>
+                        <option value="Avoids/struggles">Avoids obstacles / struggles</option>
                     </select>
+                    <small style="color: #666;">Track drivetrain capabilities for strategy planning</small>
                 </div>
 
                 <h3>Defense</h3>
@@ -205,14 +169,12 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="robotStatus">Robot Status</label>
-                    <select id="robotStatus" name="robotStatus" onchange="handleRobotStatusChange(this.value)">
+                    <label for="robotStatus">Robot Status During Match</label>
+                    <select id="robotStatus" name="robotStatus">
                         <option value="Worked full match" selected>Worked full match</option>
                         <option value="Partial breakdown">Partial breakdown (recovered)</option>
-                        <option value="Disabled">Disabled / Malfunction</option>
-                        <option value="No show">No show / Did not move</option>
+                        <option value="Disabled">Disabled (did not recover)</option>
                     </select>
-                    <small style="color: #888;">Selecting "Disabled" or "No show" will gray out scoring fields</small>
                 </div>
                 <div class="form-group">
                     <label for="consistencyRating">Overall Consistency/Reliability</label>
@@ -223,24 +185,6 @@
                     </select>
                     <small style="color: #666;">Compare this match to their typical performance</small>
                 </div>
-
-                <h3>Human Player</h3>
-                <div class="form-group">
-                    <label for="humanPlayerTeam">Human Player Team #</label>
-                    <input type="number" id="humanPlayerTeam" name="humanPlayerTeam" min="1" max="99999" placeholder="Team number of human player">
-                    <small style="color: #666;">Enter the team number of your alliance's human player</small>
-                </div>
-                <div class="form-group">
-                    <label for="humanPlayerRating">Human Player Performance</label>
-                    <select id="humanPlayerRating" name="humanPlayerRating">
-                        <option value="Not observed" selected>Not observed</option>
-                        <option value="Good">Good - Accurate & fast FUEL feeds</option>
-                        <option value="Average">Average - Some missed feeds</option>
-                        <option value="Poor">Poor - Slow or inaccurate feeds</option>
-                    </select>
-                    <small style="color: #666;">Rate accuracy and speed of FUEL feeding to robots</small>
-                </div>
-
                 <div class="form-group">
                     <label for="notes">Notes</label>
                     <textarea id="notes" name="notes" rows="4" placeholder="Observations, issues, strengths..."></textarea>
@@ -265,35 +209,6 @@
                 
                 <h3>Robot Information</h3>
                 <div class="form-group">
-                    <label>Robot Photo</label>
-                    <div style="text-align: center; margin-bottom: 12px;">
-                        <img id="robotPhotoPreview" style="display:none; max-width:100%; max-height:250px; border:3px solid #DAA520; border-radius:12px; margin-bottom:8px;" alt="Robot photo">
-                        <br>
-                        <label for="robotPhotoInput" class="btn" style="font-size:16px; padding:12px 24px; display:inline-block; cursor:pointer;">📷 Choose Photo</label>
-                        <input type="file" id="robotPhotoInput" accept="image/*" style="display:none" onchange="handleRobotPhoto(event)">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="robotType">Type of Robot</label>
-                    <select id="robotType" name="robotType">
-                        <option value="Not specified">Not specified</option>
-                        <option value="Offense">Offense</option>
-                        <option value="Defense">Defense</option>
-                        <option value="Both">Both (Offense &amp; Defense)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="shooterType">Shooter Type</label>
-                    <select id="shooterType" name="shooterType">
-                        <option value="Not specified">Not specified</option>
-                        <option value="Single shooter">Single shooter</option>
-                        <option value="Dual shooter">Dual shooter (two)</option>
-                        <option value="Triple shooter">Triple shooter (three)</option>
-                        <option value="Turret">Turret (rotating)</option>
-                        <option value="No shooter">No shooter</option>
-                    </select>
-                </div>
-                <div class="form-group">
                     <label for="robotDimension">Robot Dimensions (L x W x H)</label>
                     <input type="text" id="robotDimension" name="robotDimension" placeholder="e.g., 28 x 26 x 42 inches">
                 </div>
@@ -305,7 +220,7 @@
                     <label for="drivetrainType">Drivetrain Type</label>
                     <select id="drivetrainType" name="drivetrainType">
                         <option value="Not specified">Not specified</option>
-                        <option value="Tank/West Coast">Tank / West Coast</option>
+                        <option value="Tank/West Coast">Tank/West Coast</option>
                         <option value="Swerve">Swerve</option>
                         <option value="Mecanum">Mecanum</option>
                         <option value="H-Drive">H-Drive</option>
@@ -313,43 +228,32 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="navigationCapability">Field Navigation</label>
+                    <label for="navigationCapability">Navigation Capability</label>
                     <select id="navigationCapability" name="navigationCapability">
                         <option value="Not specified">Not specified</option>
-                        <option value="Trench robot">Trench robot (fits under trench)</option>
-                        <option value="Goes over BUMPS">Goes over BUMPS only</option>
-                        <option value="Both">Both (trench &amp; bumps)</option>
-                        <option value="Neither">Neither / Avoids obstacles</option>
+                        <option value="Goes over BUMPS">Goes over BUMPS</option>
+                        <option value="Goes through TRENCHES">Goes through TRENCHES</option>
+                        <option value="Both BUMPS and TRENCHES">Both BUMPS and TRENCHES</option>
                     </select>
                 </div>
 
                 <h3>Game Performance</h3>
                 <div class="form-group">
-                    <label for="fuelCapacity">FUEL Capacity (how many can they hold?)</label>
-                    <input type="number" id="fuelCapacity" name="fuelCapacity" placeholder="e.g., 5">
+                    <label for="autoScore">Auto Score Capability</label>
+                    <textarea id="autoScore" name="autoScore" rows="3" placeholder="What can they do in auto? (e.g., score 3 FUEL, climb Level 1, leave starting zone)"></textarea>
                 </div>
                 <div class="form-group">
-                    <label for="robotCycleTime">Robot Cycle Time</label>
-                    <select id="robotCycleTime" name="robotCycleTime">
-                        <option value="Not specified">Not specified</option>
-                        <option value="Fast">Fast (&lt;10 sec per cycle)</option>
-                        <option value="Medium">Medium (10-20 sec)</option>
-                        <option value="Slow">Slow (20+ sec)</option>
-                    </select>
-                    <small style="color: #666;">Time from picking up FUEL to scoring</small>
+                    <label for="fuelCapacity">Robot FUEL Capacity</label>
+                    <input type="number" id="fuelCapacity" name="fuelCapacity" placeholder="How many FUEL can they hold?">
                 </div>
                 <div class="form-group">
-                    <label for="autoScore">Auto Capability</label>
-                    <textarea id="autoScore" name="autoScore" rows="3" placeholder="What can they do in auto? (e.g., score 3 FUEL, leave starting zone)"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="climbCapability">Climb Level</label>
+                    <label for="climbCapability">TOWER Climb Capability</label>
                     <select id="climbCapability" name="climbCapability">
                         <option value="Not specified">Not specified</option>
                         <option value="None">Cannot climb</option>
                         <option value="Level 1">Level 1 (off ground)</option>
-                        <option value="Level 2">Level 2 (above LOW RUNG)</option>
-                        <option value="Level 3">Level 3 (above MID RUNG)</option>
+                        <option value="Level 2">Level 2 (BUMPERS above LOW RUNG)</option>
+                        <option value="Level 3">Level 3 (BUMPERS above MID RUNG)</option>
                     </select>
                 </div>
 
@@ -358,15 +262,15 @@
                     <label for="driverExperience">Driver Experience</label>
                     <select id="driverExperience" name="driverExperience">
                         <option value="Not specified">Not specified</option>
-                        <option value="Rookie">Rookie driver</option>
-                        <option value="1 year">1 year</option>
-                        <option value="2 years">2 years</option>
-                        <option value="3+ years">3+ years</option>
+                        <option value="New driver">New driver (rookie)</option>
+                        <option value="1 year">1 year experience</option>
+                        <option value="2 years">2 years experience</option>
+                        <option value="3+ years">3+ years experience</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="pitNotes">Team Strategy &amp; Notes</label>
-                    <textarea id="pitNotes" name="pitNotes" rows="4" placeholder="What is their match strategy? (e.g., offense focused, cycles FUEL to HUB, plays defense second half). Also note strengths, weaknesses, special features..."></textarea>
+                    <label for="pitNotes">Additional Notes</label>
+                    <textarea id="pitNotes" name="pitNotes" rows="4" placeholder="Design features, strengths, weaknesses, special capabilities..."></textarea>
                 </div>
                 <button type="submit" class="btn success">Save Pit Scout</button>
             </form>
@@ -379,7 +283,6 @@
             <div id="dataDisplay"></div>
             <div style="margin-top: 20px;">
                 <button class="btn" onclick="openTransferModal()">Transfer</button>
-                <button class="btn" onclick="deduplicateMatches()" style="background: #1976d2;">Remove Duplicates</button>
                 <button class="btn danger" onclick="openClearDataModal()">Clear</button>
             </div>
         </div>
@@ -388,20 +291,21 @@
         <div id="collectorPage" class="page">
             <button class="back-btn" onclick="navigateBack()">Back</button>
             <h2>Collect Data (QR)</h2>
-            <div id="liveScanContainer" style="display:none; margin: 16px 0; text-align:center;">
-                <video id="scanVideo" autoplay playsinline style="width:100%; max-width:400px; border:3px solid #DAA520; border-radius:12px;"></video>
-                <p id="scanStatus" style="color:#DAA520; margin-top:8px;">Point camera at QR code...</p>
-                <button class="btn danger" style="margin-top:8px;" onclick="stopLiveCameraScan()">Stop Camera</button>
-            </div>
+            <p style="margin: 15px 0; color: #ccc; font-size: 16px;">
+                To import data from another device:<br>
+                1. On the other device, go to Share Data and show the QR code.<br>
+                2. Take a screenshot or photo of that QR code.<br>
+                3. Click "Scan QR From Image" below and upload the photo.<br>
+                <strong>Works 100% offline — no internet needed.</strong>
+            </p>
             <div style="margin: 20px 0; text-align: center;">
-                <button class="btn success" style="font-size: 18px; padding: 20px 40px; width: 100%;" onclick="startLiveCameraScan()">📷 Scan QR Code</button>
+                <button class="btn success" style="font-size: 18px; padding: 20px 40px;" onclick="openImageQR()">📷 Scan QR From Image</button>
             </div>
-            <div id="scannedDataLog" style="margin-top:16px;"></div>
             <canvas id="qrCanvas" style="display:none"></canvas>
         </div>
     </div>
 
-    <script src="/app.js?v=2.7.0"></script>
+    <script src="/app.js?v=2.8.0"></script>
 </body>
 </html>
 
