@@ -259,10 +259,10 @@
         <!-- Import Zone -->
         <div class="import-zone" id="importZone">
             <h2>&#128202; Import Scouting Data</h2>
-            <p>Drop your CSV file here, click to browse, or paste QR data below</p>
+            <p>Drop a CSV file here, click to browse, or <strong>just press Ctrl+V anywhere on the page</strong> to paste QR / CSV data</p>
             <label class="btn">Choose CSV File<input type="file" id="fileInput" accept=".csv,.txt"></label>
             <div class="paste-area">
-                <textarea id="pasteArea" placeholder="Paste QR payload(s) or CSV data here, then click Import..."></textarea>
+                <textarea id="pasteArea" placeholder="Paste QR / CSV data here (auto-imports on paste)..."></textarea>
                 <button onclick="importFromPaste()">Import</button>
             </div>
             <p class="or-divider">&mdash; or &mdash;</p>
@@ -2029,6 +2029,56 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
     var reader = new FileReader();
     reader.onload = function(ev) { parseCSV(ev.target.result); updateUI(); saveState(); document.getElementById('importZone').style.display = 'none'; };
     reader.readAsText(file);
+});
+
+/* ---- Auto-import when pasting directly into the pasteArea textarea ---- */
+document.getElementById('pasteArea').addEventListener('paste', function() {
+    // Let browser insert text first, then process
+    setTimeout(importFromPaste, 50);
+});
+
+/* ---- Global paste handler: Ctrl+V anywhere on the page ---- */
+document.addEventListener('paste', function(e) {
+    var active = document.activeElement;
+    // If user is typing in an intentional input, let the browser handle it normally
+    var ignoreTags = ['INPUT', 'TEXTAREA'];
+    var ignoreIds = ['pasteArea', 'aqrPaste', 'tbaKey', 'apiKeyInput'];
+    if (ignoreTags.indexOf(active.tagName) !== -1 && ignoreIds.indexOf(active.id) === -1) return;
+    // Only intercept when NOT already typing in one of our watched textareas
+    if (active.id === 'pasteArea' || active.id === 'aqrPaste') return;
+
+    var text = (e.clipboardData || window.clipboardData).getData('text').trim();
+    if (!text) return;
+
+    // Is it QR format?
+    if (/[#]SCOUT,v3,/i.test(text)) {
+        e.preventDefault();
+        var csvText = qrTextToCSV(text);
+        if (!csvText) { showToast('No data rows found in pasted QR text', 'error'); return; }
+        // If import zone is showing (first load), replace; otherwise append
+        if (document.getElementById('importZone').style.display !== 'none') {
+            parseCSV(csvText); updateUI(); saveState();
+            document.getElementById('importZone').style.display = 'none';
+            showToast('Loaded ' + matchData.length + ' match records from QR');
+        } else {
+            appendCSVText(csvText);
+        }
+        return;
+    }
+
+    // Is it full CSV with a Type column?
+    if (/^Type,Match,/i.test(text) || /^Type,Team,/i.test(text)) {
+        e.preventDefault();
+        if (document.getElementById('importZone').style.display !== 'none') {
+            parseCSV(text); updateUI(); saveState();
+            document.getElementById('importZone').style.display = 'none';
+            showToast('Loaded ' + matchData.length + ' match records from CSV');
+        } else {
+            appendCSVText(text);
+        }
+        return;
+    }
+    // Else: ignore — not scouting data
 });
 
 var iz = document.getElementById('importZone');
