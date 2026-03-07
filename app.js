@@ -236,23 +236,43 @@ function initCollector() {
     const vid = document.getElementById('qrVideo');
     if (vid) vid.srcObject = null;
     updateCollectorNotice();
-    // Wire up Eyoyo / USB keyboard-wedge scanner
+    // Wire up USB keyboard-wedge QR scanner (debounce: accumulate full multi-line payload)
     const usbInput = document.getElementById('usbScanInput');
     if (usbInput) {
         usbInput.value = '';
+        let scanBuffer = '';
+        let scanTimer = null;
+        const SCAN_TIMEOUT = 150; // ms of silence = end of payload
+        const processBuffer = () => {
+            // Grab any remaining characters not yet flushed by an Enter
+            const tail = usbInput.value;
+            if (tail) scanBuffer += tail;
+            const text = scanBuffer.trim();
+            scanBuffer = '';
+            usbInput.value = '';
+            if (!text) return;
+            const ok = handleScannedContent(text);
+            usbInput.style.borderColor = ok ? '#4caf50' : '#f44336';
+            setTimeout(() => { usbInput.style.borderColor = '#DAA520'; }, 1500);
+        };
+        const resetTimer = () => {
+            if (scanTimer) clearTimeout(scanTimer);
+            scanTimer = setTimeout(processBuffer, SCAN_TIMEOUT);
+        };
         if (usbInput._scanHandler) usbInput.removeEventListener('keydown', usbInput._scanHandler);
+        if (usbInput._inputHandler) usbInput.removeEventListener('input', usbInput._inputHandler);
         usbInput._scanHandler = (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                const text = usbInput.value.trim();
-                if (!text) return;
-                const ok = handleScannedContent(text);
+                // Flush current input value into buffer as a newline
+                scanBuffer += usbInput.value + '\n';
                 usbInput.value = '';
-                usbInput.style.borderColor = ok ? '#4caf50' : '#f44336';
-                setTimeout(() => { usbInput.style.borderColor = '#DAA520'; }, 1500);
             }
+            resetTimer();
         };
+        usbInput._inputHandler = resetTimer;
         usbInput.addEventListener('keydown', usbInput._scanHandler);
+        usbInput.addEventListener('input', usbInput._inputHandler);
     }
 }
 
@@ -359,6 +379,12 @@ function openImageQR() {
 
 function handleScannedContent(text) {
     try {
+        // Normalize: re-insert newlines after #SCOUT,v3,X,Y if scanner stripped them
+        if (/[#]SCOUT,v3,/i.test(text)) {
+            text = text.replace(/([#]SCOUT,v3,\d+,\d+)(?=[^\n])/gi, '$1\n');
+            // Also normalize smart-quotes to plain quotes
+            text = text.replace(/[\u2018\u2019\u201A\u201B]/g, "'").replace(/[\u201C\u201D\u201E\u201F]/g, '"');
+        }
         // Try compact QR format first
         if (text.startsWith('T7712|')) {
             const imported = decodeMatchesFromQR(text);
@@ -373,7 +399,7 @@ function handleScannedContent(text) {
         }
 
         // v3 CSV QR format (#SCOUT,v3,...)
-        if (text.startsWith('#SCOUT,v3,')) {
+        if (/^#SCOUT,v3,/i.test(text)) {
             const imported = decodeMatchesFromQR(text);
             if (imported && imported.length > 0) {
                 const result = mergeImportedMatches(imported);
@@ -1035,10 +1061,10 @@ function decodeCSVMatchLine(line) {
 
 function decodeMatchesFromQR(qrText) {
     // New v3 CSV format
-    if (qrText.startsWith('#SCOUT,v3,')) {
+    if (/^#SCOUT,v3,/i.test(qrText)) {
         const lines = qrText.split('\n').filter(l => l.trim());
         // Skip metadata row and optional header row
-        const dataLines = lines.filter(l => !l.startsWith('#SCOUT,') && !l.startsWith('Match,'));
+        const dataLines = lines.filter(l => !/^#SCOUT,/i.test(l) && !/^Match,Team,/i.test(l) && l.trim());
         return dataLines.map(decodeCSVMatchLine).filter(Boolean);
     }
     // Legacy pipe format (T7712|v2|...)
@@ -1422,8 +1448,8 @@ async function showQRForOffline() {
 
         const chunkWord = qrChunks.length === 1 ? 'QR code' : 'QR codes';
         const scanNote = qrChunks.length > 1
-            ? `Scan each QR in order (1 &#8594; ${qrChunks.length}) with your Eyoyo or phone.`
-            : 'Scan with your Eyoyo scanner or phone.';
+            ? `Scan each QR in order (1 &#8594; ${qrChunks.length}) with your USB scanner or phone.`
+            : 'Scan with your USB scanner or phone.';
 
         const rows = qrChunks.map((_, i) => `
             <div style="text-align:center; margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid #333;">
