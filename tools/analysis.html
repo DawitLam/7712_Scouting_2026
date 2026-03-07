@@ -237,6 +237,7 @@
             <label class="append-file-label" title="Append more data from a CSV file without losing existing records">+ Append CSV<input type="file" id="appendFileInput" accept=".csv,.txt" style="display:none"></label>
             <button class="btn-sm btn-green" onclick="openAppendQR()" title="Paste QR payloads to add more match records">+ Paste QR</button>
             <button class="btn-sm btn-gray" onclick="showImportZone()" title="Load a completely new dataset">&#8635; Change Data</button>
+            <button class="btn-sm" style="background:#8b0000;color:#fff;" onclick="clearSavedState()" title="Clear persisted data from browser storage">&#128465; Clear Saved</button>
         </div>
     </div>
     <div class="toast" id="toast"></div>
@@ -704,6 +705,41 @@
 var matchData = [];
 var pitData   = [];
 var teamStats = {};
+
+/* ================================================================
+   LOCAL STORAGE PERSISTENCE  (survives page refresh)
+   ================================================================ */
+var ANALYZER_KEY = 'analyzer_saved_data_v1';
+
+function saveState() {
+    try {
+        localStorage.setItem(ANALYZER_KEY, JSON.stringify({ m: matchData, p: pitData }));
+    } catch(e) {}
+}
+
+function loadState() {
+    try {
+        var saved = localStorage.getItem(ANALYZER_KEY);
+        if (!saved) return;
+        var obj = JSON.parse(saved);
+        if (!obj || !Array.isArray(obj.m) || obj.m.length === 0) return;
+        matchData = obj.m;
+        pitData   = obj.p || [];
+        document.getElementById('importZone').style.display = 'none';
+        updateUI();
+        showToast('Restored ' + matchData.length + ' match + ' + pitData.length + ' pit records from last session');
+    } catch(e) {}
+}
+
+function clearSavedState() {
+    if (!confirm('Clear all saved analyzer data?')) return;
+    localStorage.removeItem(ANALYZER_KEY);
+    matchData = []; pitData = [];
+    updateUI();
+    document.getElementById('importZone').style.display = '';
+    document.getElementById('syncToolbar').classList.remove('visible');
+    showToast('Saved data cleared');
+}
 var scoutStats = {};
 var consensusData  = [];   // one record per (Match, Team) after majority-vote / median
 var matchAgreement = {};   // key "Match||Team" → { pct, scouts, conflicts, count }
@@ -1878,6 +1914,7 @@ function importFromApp() {
     }
     parseCSV(buildCSVFromApp(rawMatches, rawPits));
     updateUI();
+    saveState();
     document.getElementById('importZone').style.display = 'none';
     showToast('Loaded ' + rawMatches.length + ' matches + ' + rawPits.length + ' pit scouts from app');
 }
@@ -1896,6 +1933,7 @@ function syncFromApp() {
     }
     parseCSV(buildCSVFromApp(rawMatches, rawPits));
     updateUI();
+    saveState();
     showToast('Synced: ' + rawMatches.length + ' match records · ' + rawPits.length + ' pit scouts');
 }
 
@@ -1933,6 +1971,7 @@ function appendCSVText(text) {
     pitData   = prevPit.concat(newPit);
 
     updateUI();
+    saveState();
     showToast('Appended ' + newMatch.length + ' new match records · ' + newPit.length + ' new pit scouts');
 }
 
@@ -1994,7 +2033,7 @@ document.querySelectorAll('.tab').forEach(function(tab) {
 document.getElementById('fileInput').addEventListener('change', function(e) {
     var file = e.target.files[0]; if (!file) return;
     var reader = new FileReader();
-    reader.onload = function(ev) { parseCSV(ev.target.result); updateUI(); document.getElementById('importZone').style.display = 'none'; };
+    reader.onload = function(ev) { parseCSV(ev.target.result); updateUI(); saveState(); document.getElementById('importZone').style.display = 'none'; };
     reader.readAsText(file);
 });
 
@@ -2005,7 +2044,7 @@ iz.addEventListener('drop', function(e) {
     e.preventDefault(); iz.classList.remove('dragover');
     var file = e.dataTransfer.files[0]; if (!file) return;
     var reader = new FileReader();
-    reader.onload = function(ev) { parseCSV(ev.target.result); updateUI(); iz.style.display = 'none'; };
+    reader.onload = function(ev) { parseCSV(ev.target.result); updateUI(); saveState(); iz.style.display = 'none'; };
     reader.readAsText(file);
 });
 
@@ -2043,7 +2082,7 @@ function importFromPaste() {
             + dataLines.map(function(l) { return 'Match,' + l; }).join('\n');
         appendCSVText(csvText);
     } else {
-        parseCSV(text); updateUI();
+        parseCSV(text); updateUI(); saveState();
     }
     document.getElementById('importZone').style.display = 'none';
 }
@@ -2366,6 +2405,9 @@ function showScheduleOnly() {
     document.querySelector('[data-tab="schedule"]').classList.add('active');
     document.getElementById('tab-schedule').classList.add('active');
 }
+
+/* ---- AUTO-RESTORE on page load ---- */
+loadState();
 </script>
 </body>
 </html>
