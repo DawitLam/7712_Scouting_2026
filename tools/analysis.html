@@ -1991,15 +1991,9 @@ function closeAppendQR(e) {
 function doAppendQR() {
     var text = document.getElementById('aqrPaste').value.trim();
     if (!text) return;
-    if (text.indexOf('#SCOUT,v3,') !== -1) {
-        text = normalizeQRText(text);
-        var lines = text.split(/\r?\n/).filter(function(l) { return l.trim(); });
-        var dataLines = lines.filter(function(l) {
-            return !l.startsWith('#SCOUT,') && !l.startsWith('Match,Team,');
-        });
-        if (dataLines.length === 0) { showToast('No data rows found', 'error'); return; }
-        var csvText = 'Type,Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes,Timestamp\n'
-            + dataLines.map(function(l) { return 'Match,' + l; }).join('\n');
+    if (/[#]SCOUT,v3,/i.test(text)) {
+        var csvText = qrTextToCSV(text);
+        if (!csvText) { showToast('No data rows found', 'error'); return; }
         appendCSVText(csvText);
     } else {
         appendCSVText(text);
@@ -2059,28 +2053,39 @@ function normalizeQRText(text) {
     text = text.replace(/\u00C8/g, '"');
     text = text.replace(/[\u201C\u201D]/g, '"');
     // 2) Insert \n after every "#SCOUT,v3,X,Y" meta token not already followed by \n
-    //    NOTE: must be global (/g) — multi-chunk pastes have multiple meta tokens
-    text = text.replace(/(#SCOUT,v3,\d+,\d+)(?=[^\n])/g, '$1\n');
+    //    NOTE: must be global (/gi) — multi-chunk pastes have multiple meta tokens; /i = case-insensitive
+    text = text.replace(/(#SCOUT,v3,\d+,\d+)(?=[^\n])/gi, '$1\n');
     // 3) Insert \n between every column-header row ending in ",Notes" or ",Notes,Timestamp" and the next data row
     //    NOTE: must be global (/g) — multi-chunk pastes repeat the header each chunk
     text = text.replace(/(,Notes(?:,Timestamp)?)(?=[^\n,])/g, '$1\n');
     return text;
 }
 
+/** Extract and build CSV from a QR payload string (handles multi-chunk, case-insensitive). */
+function qrTextToCSV(text) {
+    text = normalizeQRText(text);
+    var lines = text.split(/\r?\n/).filter(function(l) { return l.trim(); });
+    var dataLines = lines.filter(function(l) {
+        var u = l.toUpperCase();
+        return !u.startsWith('#SCOUT,') && !u.startsWith('MATCH,TEAM,');
+    });
+    if (dataLines.length === 0) return null;
+    return 'Type,Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes,Timestamp\n'
+        + dataLines.map(function(l) { return 'Match,' + l; }).join('\n');
+}
+
 function importFromPaste() {
     var text = document.getElementById('pasteArea').value.trim();
     if (!text) return;
     // Handle #SCOUT,v3 QR format (one or multiple chunks pasted together)
-    if (text.indexOf('#SCOUT,v3,') !== -1) {
-        text = normalizeQRText(text);
-        var lines = text.split(/\r?\n/).filter(function(l) { return l.trim(); });
-        var dataLines = lines.filter(function(l) {
-            return !l.startsWith('#SCOUT,') && !l.startsWith('Match,Team,');
-        });
-        if (dataLines.length === 0) { showToast('No data rows found in pasted text', 'error'); return; }
-        var csvText = 'Type,Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes,Timestamp\n'
-            + dataLines.map(function(l) { return 'Match,' + l; }).join('\n');
-        appendCSVText(csvText);
+    if (/[#]SCOUT,v3,/i.test(text)) {
+        var csvText = qrTextToCSV(text);
+        if (!csvText) { showToast('No data rows found in pasted text', 'error'); return; }
+        // importFromPaste is a REPLACE operation — parse directly instead of appending
+        parseCSV(csvText);
+        updateUI();
+        saveState();
+        showToast('Loaded ' + matchData.length + ' match records from QR');
     } else {
         parseCSV(text); updateUI(); saveState();
     }
