@@ -227,7 +227,7 @@
         <div>
             <h1>&#127942; Team 7712 ACCN-Umoja &mdash; Scouting Analysis</h1>
             <div class="subtitle">REBUILT 2026 &middot; WCI Metrics (Weighted Contribution Index) &middot; Import CSV to begin
-                <span class="badge badge-gold">v1.8</span>
+                <span class="badge badge-gold">v1.9</span>
             </div>
         </div>
         <!-- Sync toolbar — appears after first data load -->
@@ -2027,7 +2027,7 @@ document.querySelectorAll('.tab').forEach(function(tab) {
 document.getElementById('fileInput').addEventListener('change', function(e) {
     var file = e.target.files[0]; if (!file) return;
     var reader = new FileReader();
-    reader.onload = function(ev) { parseCSV(ev.target.result); updateUI(); saveState(); document.getElementById('importZone').style.display = 'none'; };
+    reader.onload = function(ev) { appendCSVText(ev.target.result); document.getElementById('importZone').style.display = 'none'; };
     reader.readAsText(file);
 });
 
@@ -2055,27 +2055,16 @@ document.addEventListener('paste', function(e) {
         e.preventDefault();
         var csvText = qrTextToCSV(text);
         if (!csvText) { showToast('No data rows found in pasted QR text', 'error'); return; }
-        // If import zone is showing (first load), replace; otherwise append
-        if (document.getElementById('importZone').style.display !== 'none') {
-            parseCSV(csvText); updateUI(); saveState();
-            document.getElementById('importZone').style.display = 'none';
-            showToast('Loaded ' + matchData.length + ' match records from QR');
-        } else {
-            appendCSVText(csvText);
-        }
+        appendCSVText(csvText);
+        document.getElementById('importZone').style.display = 'none';
         return;
     }
 
     // Is it full CSV with a Type column?
     if (/^Type,Match,/i.test(text) || /^Type,Team,/i.test(text)) {
         e.preventDefault();
-        if (document.getElementById('importZone').style.display !== 'none') {
-            parseCSV(text); updateUI(); saveState();
-            document.getElementById('importZone').style.display = 'none';
-            showToast('Loaded ' + matchData.length + ' match records from CSV');
-        } else {
-            appendCSVText(text);
-        }
+        appendCSVText(text);
+        document.getElementById('importZone').style.display = 'none';
         return;
     }
     // Else: ignore — not scouting data
@@ -2088,7 +2077,7 @@ iz.addEventListener('drop', function(e) {
     e.preventDefault(); iz.classList.remove('dragover');
     var file = e.dataTransfer.files[0]; if (!file) return;
     var reader = new FileReader();
-    reader.onload = function(ev) { parseCSV(ev.target.result); updateUI(); saveState(); iz.style.display = 'none'; };
+    reader.onload = function(ev) { appendCSVText(ev.target.result); iz.style.display = 'none'; };
     reader.readAsText(file);
 });
 
@@ -2131,18 +2120,14 @@ function qrTextToCSV(text) {
 function importFromPaste() {
     var text = document.getElementById('pasteArea').value.trim();
     if (!text) return;
-    // Handle #SCOUT,v3 QR format (one or multiple chunks pasted together)
     if (/[#]SCOUT,v3,/i.test(text)) {
         var csvText = qrTextToCSV(text);
         if (!csvText) { showToast('No data rows found in pasted text', 'error'); return; }
-        // importFromPaste is a REPLACE operation — parse directly instead of appending
-        parseCSV(csvText);
-        updateUI();
-        saveState();
-        showToast('Loaded ' + matchData.length + ' match records from QR');
+        appendCSVText(csvText);
     } else {
-        parseCSV(text); updateUI(); saveState();
+        appendCSVText(text);
     }
+    document.getElementById('pasteArea').value = '';
     document.getElementById('importZone').style.display = 'none';
 }
 
