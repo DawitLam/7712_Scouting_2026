@@ -379,11 +379,14 @@ function openImageQR() {
 
 function handleScannedContent(text) {
     try {
-        // Normalize: re-insert newlines after #SCOUT,v3,X,Y if scanner stripped them
+        // Normalize QR v3 payload: ensure newlines exist in the right places
         if (/[#]SCOUT,v3,/i.test(text)) {
-            text = text.replace(/([#]SCOUT,v3,\d+,\d+)(?=[^\n])/gi, '$1\n');
-            // Also normalize smart-quotes to plain quotes
-            text = text.replace(/[\u2018\u2019\u201A\u201B]/g, "'").replace(/[\u201C\u201D\u201E\u201F]/g, '"');
+            // Smart/alt quotes → plain quotes
+            text = text.replace(/[\u00C8\u2018\u2019\u201A\u201B]/g, "'").replace(/[\u201C\u201D\u201E\u201F]/g, '"');
+            // Insert \n after every #SCOUT,v3,X,Y meta token not already followed by \n
+            text = text.replace(/(#SCOUT,v3,\d+,\d+)(?=[^\n])/gi, '$1\n');
+            // Insert \n after header row (ends with ,Notes or ,Notes,Timestamp)
+            text = text.replace(/(,Notes(?:,Timestamp)?)(?=[^\n,])/gi, '$1\n');
         }
         // Try compact QR format first
         if (text.startsWith('T7712|')) {
@@ -953,7 +956,7 @@ async function generateQR(text, size = 300) {
 function prefixForQR(csvText) { return `TEAM7712CSV\n${csvText}`; }
 
 // CSV headers for QR payloads (v3 format)
-const QR_CSV_HEADERS = 'Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes';
+const QR_CSV_HEADERS = 'Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes,Timestamp';
 
 function encodeMatchRecord(match) {
     // v3 format: CSV row — all string fields quoted to handle commas in multi-select values
@@ -980,7 +983,8 @@ function encodeMatchRecord(match) {
         q(match.consistencyRating || 'Reliable'),
         q(match.humanPlayerTeam || ''),
         q(match.humanPlayerRating || 'Not observed'),
-        `"${note}"`
+        `"${note}"`,
+        q(match.timestamp || new Date().toISOString())
     ].join(',');
 }
 
@@ -1054,18 +1058,59 @@ function decodeCSVMatchLine(line) {
         humanPlayerTeam: parts[18] || '',
         humanPlayerRating: parts[19] || 'Not observed',
         notes: parts[20] || '',
-        timestamp: new Date().toISOString(),
+        timestamp: parts[21] || new Date().toISOString(),
         id: Date.now() + Math.random()
     };
+}
+
+// Parses concatenated (no-newline) QR CSV body into row strings by counting fields per row.
+// expectedFields: number of fields per row (e.g. 22 with Timestamp, 21 without).
+function parseQRFieldRows(text, expectedFields) {
+    const rows = [];
+    let fields = [];
+    let cur = '';
+    let inQuote = false;
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (ch === '"') {
+            if (inQuote && text[i + 1] === '"') { cur += '"'; i++; }
+            else { inQuote = !inQuote; cur += ch; }
+        } else if (ch === '\n' || ch === '\r') {
+            if (!inQuote) { fields.push(cur); cur = ''; if (fields.length >= expectedFields) { rows.push(fields.slice(0, expectedFields).join(',')); fields = fields.slice(expectedFields); } }
+            else { cur += ' '; }
+        } else if (ch === ',' && !inQuote) {
+            fields.push(cur); cur = '';
+            if (fields.length === expectedFields) { rows.push(fields.join(',')); fields = []; }
+        } else {
+            cur += ch;
+        }
+    }
+    if (cur) fields.push(cur);
+    if (fields.length >= 15) rows.push(fields.join(','));
+    return rows;
 }
 
 function decodeMatchesFromQR(qrText) {
     // New v3 CSV format
     if (/^#SCOUT,v3,/i.test(qrText)) {
-        const lines = qrText.split('\n').filter(l => l.trim());
-        // Skip metadata row and optional header row
-        const dataLines = lines.filter(l => !/^#SCOUT,/i.test(l) && !/^Match,Team,/i.test(l) && l.trim());
-        return dataLines.map(decodeCSVMatchLine).filter(Boolean);
+        const allLines = qrText.split('\n').filter(l => l.trim());
+        const dataLines = allLines.filter(l => !/^#SCOUT,/i.test(l) && !/^Match,Team,/i.test(l));
+        // Determine expected field count from header row (22 if Timestamp present, 21 legacy)
+        const headerLine = allLines.find(l => /^Match,Team,/i.test(l)) || QR_CSV_HEADERS;
+        const expectedFields = headerLine.split(',').length; // 21 or 22
+        if (dataLines.length > 0) {
+            // Check if rows appear concatenated (first "row" has far too many fields)
+            const firstCols = dataLines[0].split(',').length;
+            if (firstCols > expectedFields + 2) {
+                // All rows run together — use field-count parser
+                return parseQRFieldRows(dataLines.join(''), expectedFields).map(decodeCSVMatchLine).filter(Boolean);
+            }
+            return dataLines.map(decodeCSVMatchLine).filter(Boolean);
+        }
+        // No newlines at all — try to split the entire body
+        const body = qrText.replace(/^#SCOUT,v3,\d+,\d+/i, '').replace(/^,?Match,Team,[^\n]*/im, '');
+        const rows = parseQRFieldRows(body.trim(), expectedFields);
+        return rows.map(decodeCSVMatchLine).filter(Boolean);
     }
     // Legacy pipe format (T7712|v2|...)
     if (!qrText.startsWith('T7712|')) return null;

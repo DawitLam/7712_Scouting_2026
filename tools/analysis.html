@@ -2022,9 +2022,9 @@ function normalizeQRText(text) {
     // 2) Insert \n after every "#SCOUT,v3,X,Y" meta token not already followed by \n
     //    NOTE: must be global (/g) — multi-chunk pastes have multiple meta tokens
     text = text.replace(/(#SCOUT,v3,\d+,\d+)(?=[^\n])/g, '$1\n');
-    // 3) Insert \n between every column-header row ending in ",Notes" and the next data row
+    // 3) Insert \n between every column-header row ending in ",Notes" or ",Notes,Timestamp" and the next data row
     //    NOTE: must be global (/g) — multi-chunk pastes repeat the header each chunk
-    text = text.replace(/(,Notes)(?=[^\n,])/g, '$1\n');
+    text = text.replace(/(,Notes(?:,Timestamp)?)(?=[^\n,])/g, '$1\n');
     return text;
 }
 
