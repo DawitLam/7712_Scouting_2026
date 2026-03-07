@@ -236,6 +236,24 @@ function initCollector() {
     const vid = document.getElementById('qrVideo');
     if (vid) vid.srcObject = null;
     updateCollectorNotice();
+    // Wire up Eyoyo / USB keyboard-wedge scanner
+    const usbInput = document.getElementById('usbScanInput');
+    if (usbInput) {
+        usbInput.value = '';
+        if (usbInput._scanHandler) usbInput.removeEventListener('keydown', usbInput._scanHandler);
+        usbInput._scanHandler = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const text = usbInput.value.trim();
+                if (!text) return;
+                const ok = handleScannedContent(text);
+                usbInput.value = '';
+                usbInput.style.borderColor = ok ? '#4caf50' : '#f44336';
+                setTimeout(() => { usbInput.style.borderColor = '#DAA520'; }, 1500);
+            }
+        };
+        usbInput.addEventListener('keydown', usbInput._scanHandler);
+    }
 }
 
 function updateCollectorNotice() {
@@ -1389,40 +1407,42 @@ async function showQRForOffline() {
         return;
     }
 
-    // Build per-chunk match-count metadata for display in the pager
-    window.currentQRChunkRecordCounts = qrChunks.map(chunk => {
+    const chunkRecordCounts = qrChunks.map(chunk => {
         const lines = chunk.split('\n').filter(l => l.trim());
         return lines.filter(l => !l.startsWith('#SCOUT,') && !l.startsWith('Match,Team,')).length;
     });
 
     closeModal();
 
-    setTimeout(() => {
+    setTimeout(async () => {
         isModalOpen = true;
         currentQRChunks = qrChunks;
         currentQRChunkIndex = 0;
         currentQRImages = new Array(qrChunks.length).fill(null);
 
         const chunkWord = qrChunks.length === 1 ? 'QR code' : 'QR codes';
+        const scanNote = qrChunks.length > 1
+            ? `Scan each QR in order (1 &#8594; ${qrChunks.length}) with your Eyoyo or phone.`
+            : 'Scan with your Eyoyo scanner or phone.';
+
+        const rows = qrChunks.map((_, i) => `
+            <div style="text-align:center; margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid #333;">
+                <p style="color:#DAA520; font-weight:bold; font-size:16px; margin:0 0 4px;">QR ${i + 1} of ${qrChunks.length} &mdash; ${chunkRecordCounts[i]} record${chunkRecordCounts[i] !== 1 ? 's' : ''}</p>
+                <div id="qrSlot${i}" style="min-height:320px; display:flex; align-items:center; justify-content:center;">
+                    <div style="color:#DAA520; font-size:18px;">&#9203; Rendering&hellip;</div>
+                </div>
+                <button class="share-btn download" id="dlBtn${i}" onclick="downloadQRByIndex(${i})" disabled style="margin-top:10px;">Save QR ${i + 1}</button>
+            </div>`).join('');
+
         const modal = document.createElement('div');
         modal.className = 'share-modal';
         modal.innerHTML = `
             <div class="share-content">
                 <h2 style="color: #DAA520; font-size: 28px;">Offline QR Codes</h2>
-                <p style="font-size: 18px;"><strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong> \u2014 <strong>${qrChunks.length}</strong> ${chunkWord}</p>
-                <div class="qr-container">
-                    <h3 style="color: #DAA520; font-size: 22px;">Preparing QR Code\u2026</h3>
-                    <div id="qrcode" style="min-height: 320px; display: flex; align-items: center; justify-content: center;">
-                        <div style="color: #DAA520; font-size: 18px;">\u23f3 Rendering\u2026</div>
-                    </div>
-                    <p id="qrMatchLabel" style="margin-top: 8px; color: #DAA520; font-size: 16px; font-weight: bold;"></p>
-                    <p id="qrPager" style="margin-top: 4px; color: #ccc; font-size: 14px;">QR 1 of ${qrChunks.length}</p>
-                    <p id="qrInstructions" style="margin-top: 8px; color: #ccc; font-size: 14px;"></p>
-                </div>
-                <div class="share-buttons">
-                    <button id="qrPrevBtn" class="share-btn" onclick="changeQRChunk(-1)" disabled>\u25c0 Prev QR</button>
-                    <button id="qrNextBtn" class="share-btn" onclick="changeQRChunk(1)" ${qrChunks.length > 1 ? '' : 'disabled'}>Next QR \u25b6</button>
-                    <button class="share-btn download" onclick="downloadQR()" disabled>Save QR Image</button>
+                <p style="font-size: 18px;"><strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong> &mdash; <strong>${qrChunks.length}</strong> ${chunkWord}</p>
+                <p style="color:#ccc; font-size:14px; margin-bottom:16px;">${scanNote}</p>
+                <div style="overflow-y:auto; max-height:65vh; padding:0 4px;">${rows}</div>
+                <div class="share-buttons" style="margin-top:16px;">
                     <button class="share-btn close" onclick="closeModal()">Close</button>
                 </div>
             </div>
@@ -1431,8 +1451,38 @@ async function showQRForOffline() {
         window.currentModal = modal;
         modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 
-        renderOfflineQRChunk();
+        // Render all QR images asynchronously
+        for (let i = 0; i < qrChunks.length; i++) {
+            try {
+                const dataUrl = await generateQR(qrChunks[i], 480);
+                currentQRImages[i] = dataUrl;
+                window.currentQR = dataUrl;
+                const slot = modal.querySelector(`#qrSlot${i}`);
+                const dlBtn = modal.querySelector(`#dlBtn${i}`);
+                if (slot) {
+                    const img = new Image();
+                    img.alt = `QR Code ${i + 1}`;
+                    img.style.cssText = 'max-width:100%; max-height:480px; border-radius:12px;';
+                    img.src = dataUrl;
+                    slot.innerHTML = '';
+                    slot.appendChild(img);
+                }
+                if (dlBtn) dlBtn.disabled = false;
+            } catch (err) {
+                const slot = modal.querySelector(`#qrSlot${i}`);
+                if (slot) slot.innerHTML = `<p style="color:#ff9800; padding:20px;">QR ${i + 1} failed: ${err.message}</p>`;
+            }
+        }
     }, 80);
+}
+
+function downloadQRByIndex(i) {
+    const url = currentQRImages && currentQRImages[i];
+    if (!url) return;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `7712-scouting-qr-${i + 1}.png`;
+    a.click();
 }
 
 function changeQRChunk(direction) {
