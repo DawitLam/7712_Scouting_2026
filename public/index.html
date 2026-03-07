@@ -35,7 +35,7 @@
             <img id="teamLogo" src="./team7712_logo_reefscape.png?v=20251205" alt="Team 7712 Logo" class="logo">
             <h1>Team 7712 ACCN-Umoja</h1>
             <div class="subtitle">FRC 2026 Scouting - REBUILT</div>
-            <div style="margin-top:6px; font-size:12px; color:#ccc;">Build v2.9.2</div>
+            <div style="margin-top:6px; font-size:12px; color:#ccc;">Build v2.9.3</div>
         </div>
 
         <!-- Home Page -->
@@ -295,26 +295,26 @@
             <!-- USB keyboard-wedge QR scanner -->
             <div style="margin: 16px 0;">
                 <p style="color: #DAA520; font-size: 16px; font-weight: bold; margin-bottom: 6px;">USB / Barcode Scanner</p>
-                <p style="color: #ccc; font-size: 14px; margin-bottom: 10px;">Click the field below, then scan any QR with your Eyoyo. Data imports automatically.</p>
+                <p style="color: #ccc; font-size: 14px; margin-bottom: 10px;">Click the field below, then scan a QR code. Data imports automatically.</p>
                 <input type="text" id="usbScanInput" autocomplete="off" spellcheck="false"
                     style="background:#000; color:#fff; border:2px solid #DAA520; border-radius:12px; font-size:16px; padding:14px 16px; width:100%; box-sizing:border-box;">
             </div>
 
-            <p style="margin: 15px 0; color: #ccc; font-size: 16px;">
-                To import data from another device:<br>
-                1. On the other device, go to Share Data and show the QR code.<br>
-                2. Take a screenshot or photo of that QR code.<br>
-                3. Click "Scan QR From Image" below and upload the photo.<br>
-                <strong>Works 100% offline — no internet needed.</strong>
-            </p>
-            <div style="margin: 20px 0; text-align: center;">
-                <button class="btn success" style="font-size: 18px; padding: 20px 40px;" onclick="openImageQR()">📷 Scan QR From Image</button>
+            <!-- Live camera scan -->
+            <div id="liveScanContainer" style="display:none; margin: 16px 0; text-align:center;">
+                <video id="scanVideo" autoplay playsinline style="width:100%; max-width:400px; border:3px solid #DAA520; border-radius:12px;"></video>
+                <p id="scanStatus" style="color:#DAA520; margin-top:8px;">Point camera at QR code...</p>
+                <button class="btn danger" style="margin-top:8px;" onclick="stopLiveCameraScan()">Stop Camera</button>
             </div>
+            <div style="margin: 20px 0; text-align: center;">
+                <button class="btn success" style="font-size: 18px; padding: 20px 40px; width:100%;" onclick="startLiveCameraScan()">📷 Scan QR Code</button>
+            </div>
+            <div id="scannedDataLog" style="margin-top:16px;"></div>
             <canvas id="qrCanvas" style="display:none"></canvas>
         </div>
     </div>
 
-    <script src="/app.js?v=2.9.2"></script>
+    <script src="/app.js?v=2.9.3"></script>
 </body>
 </html>
 

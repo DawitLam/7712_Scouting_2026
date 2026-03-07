@@ -86,7 +86,7 @@ function navigateBack() {
     if (navigationHistory.length > 1) {
         navigationHistory.pop();
         const previousPage = navigationHistory[navigationHistory.length - 1];
-        if (currentPage === 'collectorPage' && previousPage !== 'collectorPage') { stopQRScan(); }
+        if (currentPage === 'collectorPage' && previousPage !== 'collectorPage') { stopQRScan(); stopLiveCameraScan(); }
         currentPage = previousPage;
         if (previousPage === 'homePage') document.body.classList.add('home-active'); else document.body.classList.remove('home-active');
         history.pushState({page: previousPage, modal: null}, '', getPageHash(previousPage));
@@ -99,7 +99,7 @@ function navigateBack() {
 function showPage(pageId, addToHistory = true) {
     document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
     document.getElementById(pageId).classList.add('active');
-    if (currentPage === 'collectorPage' && pageId !== 'collectorPage') { stopQRScan(); }
+    if (currentPage === 'collectorPage' && pageId !== 'collectorPage') { stopQRScan(); stopLiveCameraScan(); }
     if (pageId === 'homePage') document.body.classList.add('home-active'); else document.body.classList.remove('home-active');
     if (pageId === 'dataPage') loadData();
     if (pageId === 'collectorPage') initCollector();
@@ -233,6 +233,7 @@ let barcodeDetector = ('BarcodeDetector' in window) ? new BarcodeDetector({ form
 
 function initCollector() {
     stopQRScan();
+    stopLiveCameraScan();
     const vid = document.getElementById('qrVideo');
     if (vid) vid.srcObject = null;
     updateCollectorNotice();
@@ -244,7 +245,6 @@ function initCollector() {
         let scanTimer = null;
         const SCAN_TIMEOUT = 150; // ms of silence = end of payload
         const processBuffer = () => {
-            // Grab any remaining characters not yet flushed by an Enter
             const tail = usbInput.value;
             if (tail) scanBuffer += tail;
             const text = scanBuffer.trim();
@@ -264,7 +264,6 @@ function initCollector() {
         usbInput._scanHandler = (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                // Flush current input value into buffer as a newline
                 scanBuffer += usbInput.value + '\n';
                 usbInput.value = '';
             }
@@ -274,6 +273,8 @@ function initCollector() {
         usbInput.addEventListener('keydown', usbInput._scanHandler);
         usbInput.addEventListener('input', usbInput._inputHandler);
     }
+    // Auto-start live camera scan
+    setTimeout(() => startLiveCameraScan(), 200);
 }
 
 function updateCollectorNotice() {
