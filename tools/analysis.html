@@ -2103,11 +2103,15 @@ function normalizeQRText(text) {
     text = text.replace(/\u00C8/g, '"');
     text = text.replace(/[\u201C\u201D]/g, '"');
     // 2) Insert \n after every "#SCOUT,v3,X,Y" meta token not already followed by \n
-    //    NOTE: must be global (/gi) — multi-chunk pastes have multiple meta tokens; /i = case-insensitive
+    //    /gi — multi-chunk pastes; case-insensitive for scanners that lowercase everything
     text = text.replace(/(#SCOUT,v3,\d+,\d+)(?=[^\n])/gi, '$1\n');
-    // 3) Insert \n between every column-header row ending in ",Notes" or ",Notes,Timestamp" and the next data row
-    //    NOTE: must be global (/g) — multi-chunk pastes repeat the header each chunk
-    text = text.replace(/(,Notes(?:,Timestamp)?)(?=[^\n,])/g, '$1\n');
+    // 3) Insert \n after column-header row ending in ",Notes" or ",Notes,Timestamp"
+    //    /gi — case-insensitive: some scanners send ",notes,timestamp" (all lowercase)
+    text = text.replace(/(,Notes(?:,Timestamp)?)(?=[^\n,])/gi, '$1\n');
+    // 4) Split concatenated data rows: ISO timestamps end with Z" immediately followed
+    //    by the next row's opening " — e.g. z""3",... → z"\n"3",...
+    //    This handles scanners that strip all newlines between rows.
+    text = text.replace(/([zZ])""/g, '$1"\n"');
     return text;
 }
 

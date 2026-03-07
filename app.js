@@ -388,6 +388,8 @@ function handleScannedContent(text) {
             text = text.replace(/(#SCOUT,v3,\d+,\d+)(?=[^\n])/gi, '$1\n');
             // Insert \n after header row (ends with ,Notes or ,Notes,Timestamp)
             text = text.replace(/(,Notes(?:,Timestamp)?)(?=[^\n,])/gi, '$1\n');
+            // Split concatenated rows: ISO timestamp z"" boundary → z"\n"
+            text = text.replace(/([zZ])""/g, '$1"\n"');
         }
         // Try compact QR format first
         if (text.startsWith('T7712|')) {
