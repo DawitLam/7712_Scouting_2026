@@ -402,7 +402,6 @@
                     <label>Event</label>
                     <select id="tbaEvent">
                         <option value="">Select event...</option>
-                        <option value="2026onosh">Durham College (Mar 13-15)</option>
                         <option value="2026onnob">North Bay (Mar 20-22)</option>
                     </select>
                 </div>
@@ -2456,7 +2455,7 @@ function clearTBACache() {
 
 /* ── Render the full schedule tab ── */
 function renderSchedule() {
-    var eventNames = { '2026onosh': 'Durham College (Oshawa)', '2026onnob': 'North Bay (Nipissing)' };
+    var eventNames = { '2026onnob': 'North Bay (Nipissing)' };
     var eventName = eventNames[tbaEventKey] || tbaEventKey;
 
     // Sort matches: quals first by number, then playoffs
