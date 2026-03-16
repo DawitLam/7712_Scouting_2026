@@ -2283,7 +2283,7 @@ document.addEventListener('paste', function(e) {
     }
 
     // Is it full CSV with a Type column?
-    if (/^Type,Match,/i.test(text) || /^Type,Team,/i.test(text)) {
+    if (/^[\uFEFF]?Type,Match,/i.test(text) || /^[\uFEFF]?Type,Team,/i.test(text)) {
         e.preventDefault();
         appendCSVText(text);
         document.getElementById('importZone').style.display = 'none';
