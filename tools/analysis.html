@@ -814,7 +814,8 @@ function naturalSortMatch(a, b) {
 /* TBA Schedule data */
 var tbaTeams    = [];   // team keys at the event
 var tbaMatches  = [];   // match objects from TBA
-var tbaEventKey = '';   // current event key
+var tbaEventKey  = '';   // current event key
+var tbaTeamNames = {};   // String(team_number) → nickname from TBA
 var OUR_TEAM    = 'frc7712';
 var OUR_NUM     = '7712';
 
@@ -1285,7 +1286,7 @@ function populateDropdowns(teams) {
     function fill(id, label) {
         var el = document.getElementById(id);
         el.innerHTML = '<option value="">' + label + '</option>';
-        sorted.forEach(function(t) { el.innerHTML += '<option value="' + t + '">Team ' + t + '</option>'; });
+        sorted.forEach(function(t) { el.innerHTML += '<option value="' + t + '">' + t + (tbaTeamNames[t] ? ' – ' + tbaTeamNames[t] : '') + '</option>'; });
     }
     fill('mFilter', 'All Teams');
     ['cmp1','cmp2','cmp3'].forEach(function(id, i) { fill(id, i < 2 ? 'Team ' + (i+1) : 'Team 3 (opt)'); });
@@ -1301,7 +1302,7 @@ function renderWCI() {
     var sort = document.getElementById('wciSort').value;
     var teams = [];
     Object.keys(teamStats).forEach(function(t) { teams.push(teamStats[t]); });
-    if (q) teams = teams.filter(function(s) { return s.team.indexOf(q) !== -1; });
+    if (q) teams = teams.filter(function(s) { return s.team.indexOf(q) !== -1 || (tbaTeamNames[s.team] || '').toLowerCase().indexOf(q) !== -1; });
 
     var sortFns = {
         total:      function(a, b) { return b.totalWCI - a.totalWCI; },
@@ -1333,7 +1334,7 @@ function renderWCI() {
 
         h += '<tr onclick="showTeamDetail(\'' + s.team + '\')" style="cursor:pointer">';
         h += '<td>' + (i + 1) + '</td>';
-        h += '<td><strong class="' + s.pctClass + '">' + s.team + '</strong></td>';
+        h += '<td><strong class="' + s.pctClass + '">' + s.team + '</strong>' + (tbaTeamNames[s.team] ? '<br><span style="font-size:10px;color:#8b949e;">' + tbaTeamNames[s.team] + '</span>' : '') + '</td>';
         h += '<td>' + tierBadge(s.tier) + '</td>';
         h += '<td><span class="role ' + s.role.cls + '">' + s.role.icon + ' ' + s.role.name + '</span></td>';
         h += '<td>' + (drBadge || '<span style="color:#484f58;font-size:11px;">N/A</span>') + '</td>';
@@ -1694,7 +1695,7 @@ function renderMatches() {
         var agr = matchAgreement[key];
         var isConflict = agr && agr.count > 1 && agr.pct < 80;
         h += '<tr' + (isConflict ? ' class="conflict-row"' : '') + ' onclick="showTeamDetail(\'' + (m.Team||'') + '\')" style="cursor:pointer">';
-        h += '<td>' + (m.Match || '') + '</td><td><strong>' + (m.Team || '') + '</strong></td>';
+        h += '<td>' + (m.Match || '') + '</td><td><strong>' + (m.Team || '') + '</strong>' + (tbaTeamNames[m.Team] ? '<br><span style="font-size:10px;color:#8b949e;">' + tbaTeamNames[m.Team] + '</span>' : '') + '</td>';
         h += '<td style="color:' + (m.Alliance === 'red' ? '#f85149' : '#58a6ff') + '">' + (m.Alliance || '') + '</td>';
         h += '<td>' + (m.Scout || '') + '</td>';
         if (agr && agr.count > 1) {
@@ -1723,7 +1724,7 @@ function renderPits() {
     var h = '';
     pitData.forEach(function(p) {
         var s = teamStats[p.Team];
-        h += '<div class="card"><h3>Team ' + (p.Team || '?') + ' ' + (s ? tierBadge(s.tier) + ' <span class="role ' + s.role.cls + '">' + s.role.icon + ' ' + s.role.name + '</span>' : '') + '</h3>';
+        h += '<div class="card"><h3>Team ' + (p.Team || '?') + (tbaTeamNames[p.Team] ? ' <span style="font-size:14px;font-weight:400;color:#8b949e;">– ' + tbaTeamNames[p.Team] + '</span>' : '') + ' ' + (s ? tierBadge(s.tier) + ' <span class="role ' + s.role.cls + '">' + s.role.icon + ' ' + s.role.name + '</span>' : '') + '</h3>';
         h += '<div class="grid">';
         h += fld('Scouted By', p.Scout || 'N/A'); h += fld('Robot Type', p.RobotType || 'N/A');
         h += fld('Shooter', p.ShooterType || 'N/A'); h += fld('Drivetrain', p.Drivetrain || 'N/A');
@@ -1908,7 +1909,7 @@ function renderPickList() {
         var tIcon = s.trendDir === 'up' ? '<span class="trend-up">&#9650;</span>' : s.trendDir === 'down' ? '<span class="trend-down">&#9660;</span>' : '&mdash;';
         var drBadge = drivetrainBadge(getTeamDrivetrain(s.team));
         h += '<tr><td>' + (i+1) + '</td>';
-        h += '<td><strong class="' + s.pctClass + '">' + s.team + '</strong></td>';
+        h += '<td><strong class="' + s.pctClass + '">' + s.team + '</strong>' + (tbaTeamNames[s.team] ? '<br><span style="font-size:10px;color:#8b949e;">' + tbaTeamNames[s.team] + '</span>' : '') + '</td>';
         h += '<td>' + (drBadge || '<span style="color:#484f58;font-size:11px;">?</span>') + '</td>';
         h += '<td>' + tierBadge(s.tier) + '</td>';
         h += '<td><span class="role ' + s.role.cls + '">' + s.role.icon + ' ' + s.role.name + '</span></td>';
@@ -1980,7 +1981,8 @@ function renderAllianceCard() {
         var pitNotes = pit ? (pit.Notes || '').trim() : '';
 
         html += '<div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 16px;min-width:220px;flex:1;">';
-        html += '<div style="font-size:22px;font-weight:800;color:#e6edf3;margin-bottom:4px;">Team ' + team + ' ' + tier + '</div>';
+        html += '<div style="font-size:22px;font-weight:800;color:#e6edf3;margin-bottom:2px;">Team ' + team + ' ' + tier + '</div>';
+        html += tbaTeamNames[team] ? '<div style="font-size:13px;color:#8b949e;margin-bottom:4px;">' + tbaTeamNames[team] + '</div>' : '';
         html += '<div style="margin-bottom:8px;">' + (drBadge || '<span style="color:#484f58;font-size:11px;">Drive: N/A</span>') + '</div>';
 
         // Stats table
@@ -2448,6 +2450,8 @@ function fetchTBASchedule() {
     fetchJSON(teamsUrl, headers, function(err, data) {
         if (err) { schedMsg('&#10060; Teams fetch failed: ' + err, 'error'); hadError = true; return; }
         tbaTeams = data || [];
+        tbaTeamNames = {};
+        tbaTeams.forEach(function(t) { tbaTeamNames[String(t.team_number)] = t.nickname || ''; });
         teamsDone = true;
         if (matchesDone && !hadError) renderSchedule();
     });
@@ -2479,7 +2483,7 @@ function fetchJSON(url, headers, cb) {
 
 function clearTBACache() {
     try { localStorage.removeItem('tba_key'); localStorage.removeItem('tba_event'); } catch(e) {}
-    tbaTeams = []; tbaMatches = []; tbaEventKey = '';
+    tbaTeams = []; tbaMatches = []; tbaEventKey = ''; tbaTeamNames = {};
     document.getElementById('schedContent').innerHTML = '';
     schedMsg('Cache cleared.', 'info');
 }
