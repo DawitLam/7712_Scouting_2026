@@ -2401,10 +2401,38 @@ function qrTextToCSV(text) {
         + dataLines.map(function(l) { return 'Match,' + l; }).join('\n');
 }
 
+function tryImportTeamNames(text) {
+    text = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+    var lines = text.split('\n').filter(function(l) { return l.trim(); });
+    if (lines.length < 2) return false;
+    var headers = csvLine(lines[0]).map(function(h) { return h.trim().toLowerCase(); });
+    var tnIdx = headers.indexOf('team_number');
+    var nmIdx = headers.indexOf('team_name');
+    if (tnIdx === -1 || nmIdx === -1) return false;
+    var count = 0;
+    for (var i = 1; i < lines.length; i++) {
+        var vals = csvLine(lines[i]);
+        var num = (vals[tnIdx] || '').trim();
+        var name = (vals[nmIdx] || '').trim();
+        if (num && name) { tbaTeamNames[num] = name; count++; }
+    }
+    if (count === 0) return false;
+    if (Object.keys(teamStats).length > 0) {
+        populateDropdowns(Object.keys(teamStats));
+        renderWCI(); renderMatches(); renderPits(); renderPickList(); renderScoutReport();
+    }
+    showToast('Loaded ' + count + ' team names');
+    return true;
+}
+
 function importFromPaste() {
     var text = document.getElementById('pasteArea').value.trim();
     if (!text) { showToast('Paste your CSV data into the box first, then click Import.', 'error'); return; }
     try {
+        if (tryImportTeamNames(text)) {
+            document.getElementById('pasteArea').value = '';
+            return;
+        }
         if (/[#]SCOUT,v3,/i.test(text)) {
             var csvText = qrTextToCSV(text);
             if (!csvText) { showToast('No data rows found in pasted text', 'error'); return; }
@@ -2426,7 +2454,7 @@ document.getElementById('appendFileInput').addEventListener('change', function(e
     var remaining = files.length;
     files.forEach(function(file) {
         var reader = new FileReader();
-        reader.onload = function(ev) { appendCSVText(ev.target.result); };
+        reader.onload = function(ev) { if (!tryImportTeamNames(ev.target.result)) appendCSVText(ev.target.result); };
         reader.readAsText(file);
     });
     e.target.value = ''; // reset so same files can be re-picked
