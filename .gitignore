@@ -6,3 +6,6 @@ local-docs/
 
 .vercel
 .env*.local
+
+# Local TBA API key — never commit
+tools/local-config.js
