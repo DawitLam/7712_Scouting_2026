@@ -1296,6 +1296,7 @@ function fetchTeamNamesBackground() {
         if (err || !data) return;
         tbaTeamNames = {};
         data.forEach(function(t) { tbaTeamNames[String(t.team_number)] = t.nickname || ''; });
+        saveTeamNames();
         // Re-render all views silently to show names
         populateDropdowns(Object.keys(teamStats));
         renderWCI(); renderMatches(); renderPits(); renderPickList(); renderScoutReport();
@@ -2423,6 +2424,7 @@ function tryImportTeamNames(text) {
         populateDropdowns(Object.keys(teamStats));
         renderWCI(); renderMatches(); renderPits(); renderPickList(); renderScoutReport();
     }
+    saveTeamNames();
     showToast('Loaded ' + count + ' team names');
     return true;
 }
@@ -2501,6 +2503,7 @@ function fetchTBASchedule() {
         tbaTeams = data || [];
         tbaTeamNames = {};
         tbaTeams.forEach(function(t) { tbaTeamNames[String(t.team_number)] = t.nickname || ''; });
+        saveTeamNames();
         teamsDone = true;
         if (matchesDone && !hadError) renderSchedule();
     });
@@ -2533,8 +2536,19 @@ function fetchJSON(url, headers, cb) {
 function clearTBACache() {
     try { localStorage.removeItem('tba_key'); localStorage.removeItem('tba_event'); } catch(e) {}
     tbaTeams = []; tbaMatches = []; tbaEventKey = ''; tbaTeamNames = {};
+    saveTeamNames();
     document.getElementById('schedContent').innerHTML = '';
     schedMsg('Cache cleared.', 'info');
+}
+
+function saveTeamNames() {
+    try { localStorage.setItem('tba_team_names', JSON.stringify(tbaTeamNames)); } catch(e) {}
+}
+function loadTeamNames() {
+    try {
+        var s = localStorage.getItem('tba_team_names');
+        if (s) { var n = JSON.parse(s); if (n && typeof n === 'object') tbaTeamNames = n; }
+    } catch(e) {}
 }
 
 /* ── Restore saved TBA settings on load ── */
@@ -2776,6 +2790,7 @@ function showScheduleOnly() {
 
 /* ---- AUTO-RESTORE on page load ---- */
 loadExcluded();
+loadTeamNames();
 loadState();
 </script>
 </body>
