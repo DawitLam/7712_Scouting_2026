@@ -35,7 +35,7 @@
             <img id="teamLogo" src="./team7712_logo_reefscape.png?v=20251205" alt="Team 7712 Logo" class="logo">
             <h1>Team 7712 ACCN-Umoja</h1>
             <div class="subtitle">FRC 2026 Scouting - REBUILT</div>
-            <div style="margin-top:6px; font-size:12px; color:#ccc;">Build v2.9.3</div>
+            <div style="margin-top:6px; font-size:12px; color:#ccc;">Build v3.0.0</div>
         </div>
 
         <!-- Home Page -->
@@ -117,6 +117,25 @@
                     </select>
                 </div>
                 <div class="form-group">
+                    <label for="shootingStyle">Shooting Style – On the Move or Stand &amp; Shoot?</label>
+                    <select id="shootingStyle" name="shootingStyle">
+                        <option value="Not observed" selected>Not observed yet</option>
+                        <option value="Mostly shoots while moving">On the Move (shoots while driving)</option>
+                        <option value="Mostly stops and shoots">Stand &amp; Shoot (stops to aim)</option>
+                        <option value="Mostly shoots from far">Far shooter (shoots from distance)</option>
+                        <option value="Mostly shoots close to HUB">Close shooter (near HUB)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="hopperSize">Hopper / Fuel Capacity</label>
+                    <select id="hopperSize" name="hopperSize">
+                        <option value="Unknown" selected>Unknown / Not observed</option>
+                        <option value="Big hopper">Big Hopper (high capacity – loads a lot)</option>
+                        <option value="Small hopper">Small Hopper (low capacity – loads a little)</option>
+                        <option value="Medium hopper">Medium Hopper</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="navigation">Field Navigation</label>
                     <select id="navigation" name="navigation">
                         <option value="Not observed" selected>Not observed yet</option>
@@ -177,6 +196,11 @@
                     </select>
                 </div>
                 <div class="form-group">
+                    <label for="officialAllianceScore">Official Alliance Score (from scoreboard)</label>
+                    <input type="number" id="officialAllianceScore" name="officialAllianceScore" min="0" placeholder="e.g. 87 — optional" style="background:#000;">
+                    <small style="color: #666;">Optional: enter the full alliance score. Estimated per-robot = total ÷ 3.</small>
+                </div>
+                <div class="form-group">
                     <label for="consistencyRating">Overall Consistency/Reliability</label>
                     <select id="consistencyRating" name="consistencyRating">
                         <option value="Reliable" selected>Reliable - Performed as expected</option>
@@ -217,15 +241,16 @@
                     <input type="number" id="robotWeight" name="robotWeight" placeholder="e.g., 120">
                 </div>
                 <div class="form-group">
-                    <label for="drivetrainType">Drivetrain Type</label>
+                    <label for="drivetrainType">Drivetrain Type (Swerve or Tank?)</label>
                     <select id="drivetrainType" name="drivetrainType">
                         <option value="Not specified">Not specified</option>
-                        <option value="Tank/West Coast">Tank/West Coast</option>
                         <option value="Swerve">Swerve</option>
+                        <option value="Tank/West Coast">Tank / West Coast Drive</option>
                         <option value="Mecanum">Mecanum</option>
                         <option value="H-Drive">H-Drive</option>
                         <option value="Other">Other</option>
                     </select>
+                    <small style="color: #666;">Swerve = can strafe in any direction. Tank = traditional tank drive.</small>
                 </div>
                 <div class="form-group">
                     <label for="navigationCapability">Navigation Capability</label>
@@ -280,9 +305,21 @@
         <div id="dataPage" class="page">
             <button class="back-btn" onclick="navigateBack()">Back</button>
             <h2>Scouting Data</h2>
+
+            <!-- Alliance Quick Look -->
+            <div style="background: rgba(218,165,32,0.1); border: 2px solid #DAA520; border-radius: 14px; padding: 16px; margin-bottom: 18px;">
+                <div style="color: #DAA520; font-size: 16px; font-weight: bold; margin-bottom: 10px;">&#127942; Alliance Pick &mdash; Quick Look</div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                    <input type="number" id="quickLookTeam" placeholder="Team #" min="1" style="background:#000; color:#fff; border:2px solid #DAA520; border-radius:10px; padding:10px 14px; font-size:16px; width:130px;">
+                    <button class="btn success" onclick="showAllianceSummary()" style="flex:1; min-width:140px;">&#128203; Show Summary</button>
+                </div>
+                <div style="font-size:12px; color:#999; margin-top:8px;">Drivetrain &bull; Shooting &bull; Hopper &bull; Consistency &bull; TBA link</div>
+            </div>
+
             <div id="dataDisplay"></div>
             <div style="margin-top: 20px;">
                 <button class="btn" onclick="openTransferModal()">Transfer</button>
+                <button class="btn" onclick="openImportCSVModal()">&#128228; Import CSV</button>
                 <button class="btn danger" onclick="openClearDataModal()">Clear</button>
             </div>
         </div>
@@ -314,7 +351,7 @@
         </div>
     </div>
 
-    <script src="/app.js?v=2.9.3"></script>
+    <script src="/app.js?v=3.0.0"></script>
 </body>
 </html>
 

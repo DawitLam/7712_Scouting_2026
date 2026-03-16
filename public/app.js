@@ -491,10 +491,26 @@ function getLocalMatches() {
     try { return JSON.parse(localStorage.getItem(MATCHES_KEY) || '[]'); } catch { return []; }
 }
 
+function deleteMatchRecord(timestamp) {
+    if (!confirm('Delete this match record? This cannot be undone.')) return;
+    const matches = getLocalMatches().filter(m => String(m.timestamp) !== String(timestamp));
+    localStorage.setItem(MATCHES_KEY, JSON.stringify(matches));
+    loadData();
+    showNotification('Match record deleted.');
+}
+
+function deletePitScout(teamNumber) {
+    if (!confirm(`Delete pit scout for Team ${teamNumber}? This cannot be undone.`)) return;
+    const pits = getLocalPitScouts().filter(p => String(p.teamNumber) !== String(teamNumber));
+    localStorage.setItem(PIT_SCOUTS_KEY, JSON.stringify(pits));
+    loadData();
+    showNotification(`Pit scout for Team ${teamNumber} deleted.`);
+}
+
 // When robot status is Disabled or No show, disable scoring fields
 function handleRobotStatusChange(value) {
     const disable = (value === 'Disabled' || value === 'No show');
-    const ids = ['autoFuelCategory','autoTower','teleopFuelCategory','shootingStyle','navigation','teleopTower','playedDefense','defenseEffectiveness','consistencyRating'];
+    const ids = ['autoFuelCategory','autoTower','teleopFuelCategory','shootingStyle','hopperSize','navigation','teleopTower','playedDefense','defenseEffectiveness','consistencyRating'];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -509,7 +525,7 @@ function handleRobotStatusChange(value) {
     });
     if (disable) {
         // Auto-fill disabled values
-        const sets = {autoFuelCategory:'None',autoTower:'None',teleopFuelCategory:'None',shootingStyle:'Not observed',navigation:'Not observed',teleopTower:'None',playedDefense:'No',defenseEffectiveness:'Not applicable',consistencyRating:'Unreliable'};
+        const sets = {autoFuelCategory:'None',autoTower:'None',teleopFuelCategory:'None',shootingStyle:'Not observed',hopperSize:'Unknown',navigation:'Not observed',teleopTower:'None',playedDefense:'No',defenseEffectiveness:'Not applicable',consistencyRating:'Unreliable'};
         Object.entries(sets).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val; });
         document.querySelectorAll('input[name="autoScoringMethod"]').forEach(cb => cb.checked = false);
         showNotification('Robot disabled — scoring fields locked', 'warning');
@@ -638,12 +654,14 @@ function submitMatch(event) {
         autoTower: formData.get('autoTower') || 'None',
         teleopFuelCategory: formData.get('teleopFuelCategory') || 'None',
         shootingStyle: formData.get('shootingStyle') || 'Not observed',
+        hopperSize: formData.get('hopperSize') || 'Unknown',
         navigation: formData.get('navigation') || 'Not observed',
         teleopTower: formData.get('teleopTower') || 'None',
         playedDefense: formData.get('playedDefense') || 'No',
         defenseEffectiveness: formData.get('defenseEffectiveness') || 'Not applicable',
         foulsObserved: formData.get('foulsObserved') || 'None',
         robotStatus: formData.get('robotStatus') || 'Worked full match',
+        officialAllianceScore: parseInt(formData.get('officialAllianceScore')) || 0,
         consistencyRating: formData.get('consistencyRating') || 'Reliable',
         humanPlayerTeam: formData.get('humanPlayerTeam') ? parseInt(formData.get('humanPlayerTeam')) : '',
         humanPlayerRating: formData.get('humanPlayerRating') || 'Not observed',
@@ -731,7 +749,9 @@ function loadData() {
         pitScouts.sort((a, b) => (a.teamNumber || 0) - (b.teamNumber || 0)).forEach(pit => {
             html += `
                 <div class="match-card">
-                    <div class="match-header">Team ${pit.teamNumber} - Pit Scout</div>
+                    <div class="match-header">Team ${pit.teamNumber} - Pit Scout
+                        <button onclick="deletePitScout(${pit.teamNumber})" style="float:right;background:rgba(248,81,73,0.2);border:1px solid #f85149;color:#f85149;border-radius:8px;padding:3px 10px;font-size:13px;cursor:pointer;" title="Delete this pit scout record">&#128465; Delete</button>
+                    </div>
                     <div style="margin: 12px 0; font-size: 16px;"><strong>Scout:</strong> ${pit.scoutName}</div>
                     <div style="margin: 12px 0; font-size: 16px;"><strong>Dimensions:</strong> ${pit.robotDimension || 'Not specified'} ${pit.robotWeight ? `| ${pit.robotWeight} lbs` : ''}</div>
                     <div style="margin: 12px 0; font-size: 16px;"><strong>Drivetrain:</strong> ${pit.drivetrainType} | <strong>Navigation:</strong> ${pit.navigationCapability}</div>
@@ -780,18 +800,24 @@ function loadData() {
                 
                 const scoutIndicator = multiScout ? ` <span style="background: #ff9800; color: #000; padding: 2px 8px; border-radius: 8px; font-size: 14px; font-weight: 700;">👥 Scout ${idx + 1}/${observations.length}</span>` : '';
                 
+                const hopperSize = match.hopperSize && match.hopperSize !== 'Unknown' ? match.hopperSize : null;
+                const officialScore = match.officialAllianceScore > 0 ? match.officialAllianceScore : null;
+
                 html += `
                     <div class="match-card">
-                        <div class="match-header">Match ${match.matchNumber} - Team ${match.teamNumber}${scoutIndicator}</div>
+                        <div class="match-header">Match ${match.matchNumber} - Team ${match.teamNumber}${scoutIndicator}
+                            <button onclick="showAllianceSummary(${match.teamNumber})" style="float:right;background:rgba(218,165,32,0.2);border:1px solid #DAA520;color:#DAA520;border-radius:8px;padding:3px 10px;font-size:13px;cursor:pointer;margin-left:6px;" title="Alliance Pick Summary">&#128203; Quick Look</button>
+                            <button onclick="deleteMatchRecord('${match.timestamp}')" style="float:right;background:rgba(248,81,73,0.2);border:1px solid #f85149;color:#f85149;border-radius:8px;padding:3px 10px;font-size:13px;cursor:pointer;" title="Delete this match record">&#128465; Delete</button>
+                        </div>
                         <div style="margin: 12px 0; font-size: 16px;"><strong>Alliance:</strong> ${match.alliance} | <strong>Scout:</strong> ${match.scoutName}</div>
                 ${match.location ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Location:</strong> ${match.location}</div>` : ''}
                 ${match.startPosition && match.startPosition !== 'Not recorded' ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Start:</strong> ${match.startPosition}</div>` : ''}
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Auto:</strong> ${match.autoScoringMethod && match.autoScoringMethod !== 'None' ? match.autoScoringMethod + ' — ' : ''}FUEL: ${autoFuelCategory}, Tower: ${autoTower}</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> FUEL: ${teleopFuelCategory}${match.shootingStyle && match.shootingStyle !== 'Not observed' ? ` (${match.shootingStyle})` : ''}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Teleop:</strong> FUEL: ${teleopFuelCategory}${match.shootingStyle && match.shootingStyle !== 'Not observed' ? ` | Shooting: <em>${match.shootingStyle}</em>` : ''}${hopperSize ? ` | Hopper: <strong>${hopperSize}</strong>` : ''}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Navigation:</strong> ${navigation}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Defense:</strong> ${match.playedDefense === 'Yes' ? 'Yes' : 'No'}${match.defenseEffectiveness && match.defenseEffectiveness !== 'Not applicable' ? ` (${match.defenseEffectiveness})` : ''}</div>
                 <div style="margin: 12px 0; font-size: 16px;"><strong>Endgame:</strong> Tower: ${teleopTower}</div>
-                <div style="margin: 12px 0; font-size: 16px;"><strong>Status:</strong> ${match.robotStatus || 'Worked full match'} | <strong>Consistency:</strong> ${match.consistencyRating || 'Reliable'} | <strong>Fouls:</strong> ${match.foulsObserved || 'None'}</div>
+                <div style="margin: 12px 0; font-size: 16px;"><strong>Status:</strong> ${match.robotStatus || 'Worked full match'} | <strong>Consistency:</strong> ${match.consistencyRating || 'Reliable'} | <strong>Fouls:</strong> ${match.foulsObserved || 'None'}${officialScore ? ` | <strong>Alliance Score:</strong> ${officialScore} pts (~${Math.round(officialScore/3)} est./robot)` : ''}</div>
                 ${match.humanPlayerTeam ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Human Player:</strong> Team ${match.humanPlayerTeam} — ${match.humanPlayerRating || 'Not observed'}</div>` : ''}
                 ${match.notes ? `<div style="margin: 12px 0; font-size: 16px;"><strong>Notes:</strong> ${match.notes}</div>` : ''}
                     <div style="margin-top: 15px; font-size: 14px; color: #aaa;">Recorded: ${new Date(match.timestamp).toLocaleString()}</div>
@@ -813,7 +839,7 @@ function generateCSV() {
     
     // Match Data CSV
     if (matches.length > 0) {
-        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','StartPosition','AutoScoringMethod','AutoFuelResult','AutoTower','TeleopFuelScored','ShootingStyle','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','HumanPlayerTeam','HumanPlayerRating','Notes','Timestamp'];
+        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','StartPosition','AutoScoringMethod','AutoFuelResult','AutoTower','TeleopFuelScored','ShootingStyle','HopperSize','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','HumanPlayerTeam','HumanPlayerRating','OfficialAllianceScore','Notes','Timestamp'];
         const matchRows = matches.map(m => [
                 'Match',
                 q(m.matchNumber),
@@ -827,6 +853,7 @@ function generateCSV() {
                 q(m.autoTower || 'None'),
                 q(m.teleopFuelCategory || 'None'),
                 q(m.shootingStyle || 'Not observed'),
+                q(m.hopperSize || 'Unknown'),
                 q(m.navigation || 'Not observed'),
                 q(m.teleopTower || 'None'),
                 q(m.playedDefense || 'No'),
@@ -836,6 +863,7 @@ function generateCSV() {
                 q(m.consistencyRating || 'Reliable'),
                 q(m.humanPlayerTeam || ''),
                 q(m.humanPlayerRating || 'Not observed'),
+                m.officialAllianceScore || 0,
                 q(m.notes || ''),
                 q(m.timestamp || '')
             ].join(','));
@@ -959,7 +987,7 @@ async function generateQR(text, size = 300) {
 function prefixForQR(csvText) { return `TEAM7712CSV\n${csvText}`; }
 
 // CSV headers for QR payloads (v3 format)
-const QR_CSV_HEADERS = 'Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes,Timestamp';
+const QR_CSV_HEADERS = 'Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,HopperSize,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,OfficialAllianceScore,Notes,Timestamp';
 
 function encodeMatchRecord(match) {
     // v3 format: CSV row — all string fields quoted to handle commas in multi-select values
@@ -977,6 +1005,7 @@ function encodeMatchRecord(match) {
         q(match.autoTower || 'None'),
         q(match.teleopFuelCategory || 'None'),
         q(match.shootingStyle || 'Not observed'),
+        q(match.hopperSize || 'Unknown'),
         q(match.navigation || 'Not observed'),
         q(match.teleopTower || 'None'),
         q(match.playedDefense || 'No'),
@@ -986,6 +1015,7 @@ function encodeMatchRecord(match) {
         q(match.consistencyRating || 'Reliable'),
         q(match.humanPlayerTeam || ''),
         q(match.humanPlayerRating || 'Not observed'),
+        match.officialAllianceScore || 0,
         `"${note}"`,
         q(match.timestamp || new Date().toISOString())
     ].join(',');
@@ -1039,6 +1069,22 @@ function decodeCSVMatchLine(line) {
     }
     parts.push(cur);
     if (parts.length < 15) return null;
+    // v3.1 format: 24 fields (HopperSize at [11], OfficialAllianceScore at [21])
+    // v3.0 format: 22 fields (legacy — no HopperSize, no OfficialAllianceScore)
+    const isNewFormat = parts.length >= 24;
+    const hopperSize  = isNewFormat ? (parts[11] || 'Unknown') : 'Unknown';
+    const navIdx      = isNewFormat ? 12 : 11;
+    const towerIdx    = isNewFormat ? 13 : 12;
+    const defIdx      = isNewFormat ? 14 : 13;
+    const defEffIdx   = isNewFormat ? 15 : 14;
+    const foulsIdx    = isNewFormat ? 16 : 15;
+    const statusIdx   = isNewFormat ? 17 : 16;
+    const consistIdx  = isNewFormat ? 18 : 17;
+    const hpTeamIdx   = isNewFormat ? 19 : 18;
+    const hpRatingIdx = isNewFormat ? 20 : 19;
+    const officialScoreIdx = isNewFormat ? 21 : -1;
+    const notesIdx    = isNewFormat ? 22 : 20;
+    const tsIdx       = isNewFormat ? 23 : 21;
     return {
         matchNumber: parts[0] || '',
         teamNumber: parseInt(parts[1], 10) || 0,
@@ -1051,17 +1097,19 @@ function decodeCSVMatchLine(line) {
         autoTower: parts[8] || 'None',
         teleopFuelCategory: parts[9] || 'None',
         shootingStyle: parts[10] || 'Not observed',
-        navigation: parts[11] || 'Not observed',
-        teleopTower: parts[12] || 'None',
-        playedDefense: parts[13] || 'No',
-        defenseEffectiveness: parts[14] || 'Not applicable',
-        foulsObserved: parts[15] || 'None',
-        robotStatus: parts[16] || 'Worked full match',
-        consistencyRating: parts[17] || 'Reliable',
-        humanPlayerTeam: parts[18] || '',
-        humanPlayerRating: parts[19] || 'Not observed',
-        notes: parts[20] || '',
-        timestamp: parts[21] || new Date().toISOString(),
+        hopperSize,
+        navigation: parts[navIdx] || 'Not observed',
+        teleopTower: parts[towerIdx] || 'None',
+        playedDefense: parts[defIdx] || 'No',
+        defenseEffectiveness: parts[defEffIdx] || 'Not applicable',
+        foulsObserved: parts[foulsIdx] || 'None',
+        robotStatus: parts[statusIdx] || 'Worked full match',
+        consistencyRating: parts[consistIdx] || 'Reliable',
+        humanPlayerTeam: parts[hpTeamIdx] || '',
+        humanPlayerRating: parts[hpRatingIdx] || 'Not observed',
+        officialAllianceScore: officialScoreIdx >= 0 ? (parseInt(parts[officialScoreIdx], 10) || 0) : 0,
+        notes: parts[notesIdx] || '',
+        timestamp: parts[tsIdx] || new Date().toISOString(),
         id: Date.now() + Math.random()
     };
 }
@@ -1236,6 +1284,257 @@ function deduplicateMatches() {
 
 function openExportModal() { openTransferModal(); }
 function openShareModal() { openTransferModal(); }
+
+// ─── Parse the app's own exported CSV (Type,Match,Team,... format) ───────────
+function parseExportedCSV(csvText) {
+    const results = { matches: [], pitScouts: [] };
+    const sections = csvText.split(/\n\s*\n/);
+    sections.forEach(section => {
+        const lines = section.trim().split('\n').filter(l => l.trim());
+        if (lines.length < 2) return;
+        const hdrs = splitCSVLine(lines[0]);
+        for (let i = 1; i < lines.length; i++) {
+            const cells = splitCSVLine(lines[i]);
+            const row = {};
+            hdrs.forEach((h, idx) => { row[h] = (cells[idx] || '').trim(); });
+            if (row.Type === 'Match') {
+                results.matches.push({
+                    matchNumber: row.Match || '',
+                    teamNumber: parseInt(row.Team) || 0,
+                    alliance: (row.Alliance || 'red').toLowerCase(),
+                    scoutName: row.Scout || '',
+                    location: row.Location || '',
+                    startPosition: row.StartPosition || 'Not recorded',
+                    autoScoringMethod: row.AutoScoringMethod || 'None',
+                    autoFuelCategory: row.AutoFuelResult || 'None',
+                    autoTower: row.AutoTower || 'None',
+                    teleopFuelCategory: row.TeleopFuelScored || 'None',
+                    shootingStyle: row.ShootingStyle || 'Not observed',
+                    hopperSize: row.HopperSize || 'Unknown',
+                    navigation: row.Navigation || 'Not observed',
+                    teleopTower: row.TeleopTower || 'None',
+                    playedDefense: row.PlayedDefense || 'No',
+                    defenseEffectiveness: row.DefenseEffectiveness || 'Not applicable',
+                    foulsObserved: row.FoulsObserved || 'None',
+                    robotStatus: row.RobotStatus || 'Worked full match',
+                    consistencyRating: row.ConsistencyRating || 'Reliable',
+                    humanPlayerTeam: row.HumanPlayerTeam || '',
+                    humanPlayerRating: row.HumanPlayerRating || 'Not observed',
+                    officialAllianceScore: parseInt(row.OfficialAllianceScore) || 0,
+                    notes: row.Notes || '',
+                    timestamp: row.Timestamp || new Date().toISOString(),
+                    id: Date.now() + Math.random()
+                });
+            } else if (row.Type === 'PitScout') {
+                results.pitScouts.push({
+                    teamNumber: parseInt(row.Team) || 0,
+                    scoutName: row.Scout || '',
+                    robotType: row.RobotType || 'Not specified',
+                    shooterType: row.ShooterType || 'Not specified',
+                    drivetrainType: row.Drivetrain || 'Not specified',
+                    robotDimension: row.Dimensions || '',
+                    robotWeight: row.Weight || '',
+                    navigationCapability: row.Navigation || 'Not specified',
+                    fuelCapacity: row.FuelCapacity || '',
+                    robotCycleTime: row.CycleTime || 'Not specified',
+                    autoScore: row.AutoCapability || '',
+                    climbCapability: row.ClimbLevel || 'Not specified',
+                    driverExperience: row.DriverExperience || 'Not specified',
+                    pitNotes: row.Notes || '',
+                    timestamp: row.Timestamp || new Date().toISOString(),
+                    id: Date.now() + Math.random()
+                });
+            }
+        }
+    });
+    return results;
+}
+
+// ─── Import one or more CSV files at once ─────────────────────────────────────
+function openImportCSVModal() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.txt';
+    input.multiple = true;
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.onchange = (e) => {
+        const files = Array.from(e.target.files);
+        if (!files.length) { document.body.removeChild(input); return; }
+        let totalMatchesAdded = 0, totalMatchesSkipped = 0, totalPitsAdded = 0;
+        let remaining = files.length;
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const { matches, pitScouts } = parseExportedCSV(ev.target.result);
+                    if (matches.length > 0) {
+                        const result = mergeImportedMatches(matches);
+                        totalMatchesAdded += result.added;
+                        totalMatchesSkipped += result.skipped;
+                    }
+                    if (pitScouts.length > 0) {
+                        const existingPits = getLocalPitScouts();
+                        pitScouts.forEach(p => {
+                            const idx = existingPits.findIndex(ep => ep.teamNumber === p.teamNumber);
+                            if (idx >= 0) existingPits[idx] = { ...existingPits[idx], ...p };
+                            else { existingPits.push(p); totalPitsAdded++; }
+                        });
+                        localStorage.setItem(PIT_SCOUTS_KEY, JSON.stringify(existingPits));
+                    }
+                } catch (err) {
+                    showNotification(`Error in ${file.name}: ${err.message}`, 'error');
+                }
+                remaining--;
+                if (remaining === 0) {
+                    const pitMsg = totalPitsAdded > 0 ? ` + ${totalPitsAdded} pit scout(s)` : '';
+                    showNotification(
+                        `Imported ${totalMatchesAdded} new match${totalMatchesAdded !== 1 ? 'es' : ''}${pitMsg}, skipped ${totalMatchesSkipped} duplicates — from ${files.length} file(s)`,
+                        'success'
+                    );
+                    loadData();
+                    document.body.removeChild(input);
+                }
+            };
+            reader.readAsText(file);
+        });
+    };
+    input.click();
+}
+
+// ─── Alliance Pick Summary Modal ─────────────────────────────────────────────
+function showAllianceSummary(teamNumberArg) {
+    const teamNumber = teamNumberArg || parseInt(document.getElementById('quickLookTeam')?.value);
+    if (!teamNumber || isNaN(teamNumber)) {
+        showNotification('Enter a team number first', 'warning');
+        return;
+    }
+    const allMatches = getLocalMatches().filter(m => m.teamNumber === teamNumber);
+    const pit = getLocalPitScouts().find(p => p.teamNumber === teamNumber);
+
+    // Drivetrain
+    const drivetrain = pit?.drivetrainType || 'Unknown (no pit scout)';
+    const driveIcon = drivetrain.includes('Swerve') ? '🔵' : drivetrain.includes('Tank') ? '🟤' : '⚙️';
+
+    // Mode helper
+    const mode = (arr) => {
+        const c = {};
+        arr.forEach(v => { if (v) c[v] = (c[v] || 0) + 1; });
+        return Object.entries(c).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+    };
+
+    // Shooting style
+    const validShooting = allMatches.map(m => m.shootingStyle).filter(s => s && s !== 'Not observed');
+    const topShooting = mode(validShooting) || 'Not observed';
+    const shootIcon = topShooting.includes('moving') ? '🏃' : topShooting.includes('stops') ? '🎯' : '📡';
+
+    // Hopper size
+    const validHopper = allMatches.map(m => m.hopperSize).filter(h => h && h !== 'Unknown');
+    const topHopper = mode(validHopper) || (pit?.fuelCapacity ? `${pit.fuelCapacity} fuel (pit)` : 'Unknown');
+
+    // Best climb
+    const climbOrder = { 'None': 0, 'Level 1': 1, 'Level 2': 2, 'Level 3': 3 };
+    const bestClimb = allMatches.reduce((best, m) => {
+        const c = m.teleopTower || 'None';
+        return (climbOrder[c] || 0) > (climbOrder[best] || 0) ? c : best;
+    }, 'None');
+
+    // Consistency
+    const topConsistency = mode(allMatches.map(m => m.consistencyRating)) || 'No data';
+    const consistColor = { 'Reliable': '#4caf50', 'Average': '#ff9800', 'Unreliable': '#f44336' }[topConsistency] || '#ccc';
+
+    // Reliability
+    const workedFull = allMatches.filter(m => m.robotStatus === 'Worked full match').length;
+    const reliabilityPct = allMatches.length > 0 ? Math.round(workedFull / allMatches.length * 100) : null;
+
+    // Fuel scoring rate
+    const fuelGood = allMatches.filter(m => ['High', 'Medium'].includes(m.teleopFuelCategory)).length;
+    const fuelRate = allMatches.length > 0 ? Math.round(fuelGood / allMatches.length * 100) : 0;
+
+    // Defense
+    const defenseGames = allMatches.filter(m => m.playedDefense === 'Yes').length;
+    const defGoodGames = allMatches.filter(m => m.playedDefense === 'Yes' && m.defenseEffectiveness === 'High').length;
+
+    // Official score average
+    const officialScores = allMatches.filter(m => m.officialAllianceScore > 0).map(m => m.officialAllianceScore);
+    const avgOfficialScore = officialScores.length > 0
+        ? Math.round(officialScores.reduce((a, b) => a + b, 0) / officialScores.length)
+        : null;
+
+    // Recent notes
+    const recentNotes = allMatches
+        .filter(m => m.notes && m.notes.trim())
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .slice(0, 3)
+        .map(m => `• (${m.matchNumber}) ${m.notes.trim().substring(0, 100)}`)
+        .join('\n');
+
+    const tbaTeamLink = `https://www.thebluealliance.com/team/${teamNumber}/2026`;
+
+    isModalOpen = true;
+    const modal = document.createElement('div');
+    modal.className = 'share-modal';
+    modal.innerHTML = `
+        <div class="share-content" style="max-height:90vh;overflow-y:auto;">
+            <h2 style="color:#DAA520;font-size:26px;">&#127942; Team ${teamNumber}</h2>
+            <p style="color:#ccc;font-size:13px;margin-bottom:16px;"><strong>${allMatches.length}</strong> scouted match${allMatches.length !== 1 ? 'es' : ''} &bull; Alliance Pick Quick Summary</p>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px;">
+                    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Drivetrain</div>
+                    <div style="font-size:17px;font-weight:700;">${driveIcon} ${drivetrain}</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px;">
+                    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Shooting Style</div>
+                    <div style="font-size:15px;font-weight:700;">${shootIcon} ${topShooting}</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px;">
+                    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Hopper / Capacity</div>
+                    <div style="font-size:15px;font-weight:700;">&#128717; ${topHopper}</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px;">
+                    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Best Climb</div>
+                    <div style="font-size:15px;font-weight:700;">&#129705; ${bestClimb}</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px;">
+                    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Consistency</div>
+                    <div style="font-size:15px;font-weight:700;color:${consistColor};">${topConsistency}</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.07);border-radius:10px;padding:12px;">
+                    <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Reliability</div>
+                    <div style="font-size:15px;font-weight:700;color:${reliabilityPct !== null ? (reliabilityPct >= 85 ? '#4caf50' : reliabilityPct >= 70 ? '#ff9800' : '#f44336') : '#ccc'};">${reliabilityPct !== null ? reliabilityPct + '%' : 'N/A'}</div>
+                </div>
+            </div>
+
+            <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:12px;margin-bottom:12px;font-size:14px;">
+                <div style="font-size:11px;color:#DAA520;font-weight:700;margin-bottom:8px;text-transform:uppercase;">Scoring Profile</div>
+                <div>&#9889; Fuel scoring: <strong>${fuelRate}%</strong> of matches at High/Medium level</div>
+                ${defenseGames > 0 ? `<div style="margin-top:4px;">&#128737; Defense: <strong>${defenseGames}/${allMatches.length}</strong> matches${defGoodGames > 0 ? ` (${defGoodGames} high effectiveness)` : ''}</div>` : ''}
+                ${avgOfficialScore ? `<div style="margin-top:4px;">&#127942; Avg alliance score: <strong>${avgOfficialScore} pts</strong> &rarr; ~<strong>${Math.round(avgOfficialScore/3)} pts/robot</strong> est.</div>` : ''}
+            </div>
+
+            ${recentNotes ? `<div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:12px;margin-bottom:12px;">
+                <div style="font-size:11px;color:#DAA520;font-weight:700;margin-bottom:8px;text-transform:uppercase;">Recent Scout Notes</div>
+                <div style="font-size:13px;color:#ccc;white-space:pre-line;line-height:1.6;">${recentNotes}</div>
+            </div>` : ''}
+
+            <div style="background:rgba(218,165,32,0.1);border:1px solid rgba(218,165,32,0.4);border-radius:10px;padding:12px;margin-bottom:12px;">
+                <div style="font-size:11px;color:#DAA520;font-weight:700;margin-bottom:8px;text-transform:uppercase;">&#128279; The Blue Alliance</div>
+                <a href="${tbaTeamLink}" target="_blank" rel="noopener" style="color:#58a6ff;font-size:14px;">Team ${teamNumber} &mdash; 2026 Season page</a>
+                <div style="font-size:12px;color:#888;margin-top:6px;">Click to view match videos, rankings, and official scores</div>
+            </div>
+
+            ${allMatches.length === 0 ? '<div style="color:#f44336;font-size:14px;text-align:center;padding:12px;background:rgba(244,67,54,0.1);border-radius:10px;margin-bottom:12px;">&#9888; No match data for this team yet. Scout them first!</div>' : ''}
+
+            <div class="share-buttons" style="margin-top:16px;">
+                <button class="share-btn close" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    window.currentModal = modal;
+    modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+}
 
 async function openTransferModal() {
     try {

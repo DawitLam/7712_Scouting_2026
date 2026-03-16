@@ -234,7 +234,7 @@
         <div class="sync-toolbar" id="syncToolbar">
             <span class="sync-info" id="syncInfo"></span>
             <button class="btn-sm btn-green" onclick="syncFromApp()" title="Re-read all data from this browser's scouting app storage">&#8635; Sync from App</button>
-            <label class="append-file-label" title="Append more data from a CSV file without losing existing records">+ Append CSV<input type="file" id="appendFileInput" accept=".csv,.txt" style="display:none"></label>
+            <label class="append-file-label" title="Append more data from one or more CSV files without losing existing records">+ Append CSV<input type="file" id="appendFileInput" accept=".csv,.txt" multiple style="display:none"></label>
             <button class="btn-sm btn-green" onclick="openAppendQR()" title="Paste QR payloads to add more match records">+ Paste QR</button>
             <button class="btn-sm btn-gray" onclick="showImportZone()" title="Load a completely new dataset">&#8635; Change Data</button>
             <button class="btn-sm" style="background:#8b0000;color:#fff;" onclick="clearSavedState()" title="Clear persisted data from browser storage">&#128465; Clear Saved</button>
@@ -260,7 +260,7 @@
         <div class="import-zone" id="importZone">
             <h2>&#128202; Import Scouting Data</h2>
             <p>Drop a CSV file here, click to browse, or <strong>just press Ctrl+V anywhere on the page</strong> to paste QR / CSV data</p>
-            <label class="btn">Choose CSV File<input type="file" id="fileInput" accept=".csv,.txt"></label>
+            <label class="btn">Choose CSV File(s)<input type="file" id="fileInput" accept=".csv,.txt" multiple></label>
             <div class="paste-area">
                 <textarea id="pasteArea" placeholder="Paste QR / CSV data here (auto-imports on paste)..."></textarea>
                 <button onclick="importFromPaste()">Import</button>
@@ -368,6 +368,19 @@
         <!-- Pick List Tab -->
         <div class="tab-content" id="tab-picklist">
             <p style="color:#8b949e; margin-bottom:16px;">Alliance selection helper. Teams ranked by overall value &mdash; combining WCI output, consistency, confidence, and role fit.</p>
+
+            <!-- Alliance Card Builder -->
+            <div style="background:rgba(218,165,32,0.08);border:1px solid rgba(218,165,32,0.4);border-radius:12px;padding:16px;margin-bottom:20px;">
+                <div style="color:#DAA520;font-weight:700;font-size:14px;margin-bottom:10px;">&#127942; Alliance Pick Card Builder</div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;">
+                    <select id="alliancePick1" style="padding:8px 12px;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:8px;font-size:13px;"><option value="">Team 1</option></select>
+                    <select id="alliancePick2" style="padding:8px 12px;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:8px;font-size:13px;"><option value="">Team 2</option></select>
+                    <select id="alliancePick3" style="padding:8px 12px;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:8px;font-size:13px;"><option value="">Team 3 (opt)</option></select>
+                    <button class="btn-sm btn-gold" onclick="renderAllianceCard()">&#128203; Build Alliance Card</button>
+                </div>
+                <div id="allianceCardResult"></div>
+            </div>
+
             <div id="pickContent"></div>
         </div>
 
@@ -469,6 +482,11 @@
                         <td style="padding:7px 10px;color:#8b949e;">How the robot positions itself to shoot</td>
                         <td style="padding:7px 10px;color:#a3d977;">Not observed &nbsp;|&nbsp; Mostly shoots while moving &nbsp;|&nbsp; Mostly stops and shoots &nbsp;|&nbsp; Mostly shoots from far &nbsp;|&nbsp; Mostly shoots close to HUB</td>
                     </tr>
+                    <tr style="border-bottom:1px solid #161b22; background:rgba(88,166,255,0.04);">
+                        <td style="padding:7px 10px;"><code style="color:#58a6ff;">HopperSize</code> <span style="font-size:10px;background:rgba(88,166,255,0.15);color:#58a6ff;padding:1px 5px;border-radius:4px;">NEW v3</span></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Robot's fuel storage capacity as observed by scout</td>
+                        <td style="padding:7px 10px;color:#a3d977;">Unknown &nbsp;|&nbsp; Big hopper &nbsp;|&nbsp; Small hopper &nbsp;|&nbsp; Medium hopper</td>
+                    </tr>
                     <tr style="border-bottom:1px solid #161b22;">
                         <td style="padding:7px 10px;"><code style="color:#e6edf3;">Navigation</code></td>
                         <td style="padding:7px 10px;color:#8b949e;">How the robot moves around the field</td>
@@ -513,6 +531,11 @@
                         <td style="padding:7px 10px;"><code style="color:#e6edf3;">HumanPlayerRating</code></td>
                         <td style="padding:7px 10px;color:#8b949e;">FUEL feeding accuracy &amp; speed of human player</td>
                         <td style="padding:7px 10px;color:#a3d977;">Not observed &nbsp;|&nbsp; Good &nbsp;|&nbsp; Average &nbsp;|&nbsp; Poor</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22; background:rgba(88,166,255,0.04);">
+                        <td style="padding:7px 10px;"><code style="color:#58a6ff;">OfficialAllianceScore</code> <span style="font-size:10px;background:rgba(88,166,255,0.15);color:#58a6ff;padding:1px 5px;border-radius:4px;">NEW v3</span></td>
+                        <td style="padding:7px 10px;color:#8b949e;">Official alliance total score from the scoreboard (optional). Divide by 3 for a per-robot estimate.</td>
+                        <td style="padding:7px 10px;color:#a3d977;">Integer ≥ 0 (0 = not entered)</td>
                     </tr>
                     <tr>
                         <td style="padding:7px 10px;"><code style="color:#e6edf3;">Notes</code></td>
@@ -702,9 +725,11 @@
 /* ================================================================
    DATA STORE
    ================================================================ */
-var matchData = [];
-var pitData   = [];
-var teamStats = {};
+var matchData    = [];
+var pitData      = [];
+var teamStats    = {};
+var excludedKeys    = {};  // keys of raw records excluded from analysis
+var activeDetailTeam = null; // team currently open in the detail drilldown
 
 /* ================================================================
    LOCAL STORAGE PERSISTENCE  (survives page refresh)
@@ -729,6 +754,33 @@ function loadState() {
         updateUI();
         showToast('Restored ' + matchData.length + ' match + ' + pitData.length + ' pit records from last session');
     } catch(e) {}
+}
+
+/* ── Exclusion persistence ── */
+var EXCLUDED_KEY = 'analyzer_excluded_v1';
+function recordKey(m) {
+    return (m.Timestamp || '') + '||' + (m.Team || '') + '||' + (m.Match || '') + '||' + (m.Scout || '');
+}
+function saveExcluded() {
+    try { localStorage.setItem(EXCLUDED_KEY, JSON.stringify(excludedKeys)); } catch(e) {}
+}
+function loadExcluded() {
+    try { var s = localStorage.getItem(EXCLUDED_KEY); if (s) excludedKeys = JSON.parse(s) || {}; } catch(e) {}
+}
+function toggleExclude(key) {
+    if (excludedKeys[key]) delete excludedKeys[key];
+    else excludedKeys[key] = true;
+    saveExcluded();
+    updateUI();
+    // If user is in team detail, re-open it instead of landing on WCI rankings
+    if (activeDetailTeam) showTeamDetail(activeDetailTeam);
+}
+function clearAllExclusions() {
+    if (!confirm('Re-include all ' + Object.keys(excludedKeys).length + ' excluded record(s) in the analysis?')) return;
+    excludedKeys = {};
+    saveExcluded();
+    updateUI();
+    if (activeDetailTeam) showTeamDetail(activeDetailTeam);
 }
 
 function clearSavedState() {
@@ -870,9 +922,9 @@ function isWorking(m) {
    record via majority-vote (categorical) / ordinal-median.
    ================================================================ */
 
-var CONSENSUS_CAT_FIELDS = [
+        var CONSENSUS_CAT_FIELDS = [
     'StartPosition','AutoScoringMethod','AutoFuelResult','AutoTower',
-    'ShootingStyle','Navigation','TeleopTower','PlayedDefense',
+    'ShootingStyle','HopperSize','Navigation','TeleopTower','PlayedDefense',
     'DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating',
     'HumanPlayerRating'
 ];
@@ -882,9 +934,9 @@ var CONSENSUS_ORD_FIELDS = {
 var ALL_CONSENSUS_FIELDS = CONSENSUS_CAT_FIELDS.concat(Object.keys(CONSENSUS_ORD_FIELDS));
 
 function buildConsensus() {
-    // 1. Group raw rows by (Match, Team)
+    // 1. Group raw rows by (Match, Team) — skip excluded records
     var groups = {};
-    matchData.forEach(function(m) {
+    matchData.filter(function(m) { return !excludedKeys[recordKey(m)]; }).forEach(function(m) {
         var key = (m.Match || '') + '||' + (m.Team || '');
         if (!groups[key]) groups[key] = [];
         groups[key].push(m);
@@ -990,8 +1042,8 @@ function computeStats() {
     teamStats = {};
     scoutStats = {};
 
-    // ── Global scout tracking from RAW data ──
-    matchData.forEach(function(m) {
+    // ── Global scout tracking from RAW data (non-excluded) ──
+    matchData.filter(function(m) { return !excludedKeys[recordKey(m)]; }).forEach(function(m) {
         var scout = m.Scout || 'Unknown';
         if (!scoutStats[scout]) scoutStats[scout] = { name: scout, matches: 0, teams: {}, ratings: [] };
         scoutStats[scout].matches++;
@@ -1037,8 +1089,8 @@ function computeStats() {
         if (agr) s.agreementArr.push(agr.pct);
     });
 
-    // ── Scout ratings per team from RAW data (for cross-scout agreement) ──
-    matchData.forEach(function(m) {
+    // ── Scout ratings per team from RAW data (for cross-scout agreement, non-excluded) ──
+    matchData.filter(function(m) { return !excludedKeys[recordKey(m)]; }).forEach(function(m) {
         var t = m.Team;
         if (!t || !teamStats[t]) return;
         var s = teamStats[t];
@@ -1258,7 +1310,7 @@ function renderWCI() {
     teams.forEach(function(s) { if (s.totalWCI > maxT) maxT = s.totalWCI; });
 
     var h = '<table><thead><tr>';
-    h += '<th>#</th><th>Team</th><th>Tier</th><th>Role</th>';
+    h += '<th>#</th><th>Team</th><th>Tier</th><th>Role</th><th>Drive</th>';
     h += '<th class="tooltip" data-tip="Weighted Contribution Index — our composite scoring metric">Total WCI</th>';
     h += '<th>Auto</th><th>Teleop</th><th>Endgame</th>';
     h += '<th class="tooltip" data-tip="Standard deviation — lower = more predictable">&#963; Var</th>';
@@ -1269,12 +1321,14 @@ function renderWCI() {
     teams.forEach(function(s, i) {
         var tIcon = s.trendDir === 'up' ? '<span class="trend-up">&#9650;</span>' : s.trendDir === 'down' ? '<span class="trend-down">&#9660;</span>' : '<span class="trend-flat">&mdash;</span>';
         var pctW = Math.max((s.totalWCI / maxT * 100), 5).toFixed(0);
+        var drBadge = drivetrainBadge(getTeamDrivetrain(s.team));
 
         h += '<tr onclick="showTeamDetail(\'' + s.team + '\')" style="cursor:pointer">';
         h += '<td>' + (i + 1) + '</td>';
         h += '<td><strong class="' + s.pctClass + '">' + s.team + '</strong></td>';
         h += '<td>' + tierBadge(s.tier) + '</td>';
         h += '<td><span class="role ' + s.role.cls + '">' + s.role.icon + ' ' + s.role.name + '</span></td>';
+        h += '<td>' + (drBadge || '<span style="color:#484f58;font-size:11px;">N/A</span>') + '</td>';
         h += '<td><div class="wci-bar"><div class="wci-track"><div class="wci-fill" style="width:' + pctW + '%;background:' + tierColor(s.tier) + '">' + s.totalWCI.toFixed(1) + '</div></div></div></td>';
         h += '<td>' + s.autoWCI.toFixed(1) + '</td>';
         h += '<td>' + s.teleopWCI.toFixed(1) + '</td>';
@@ -1301,14 +1355,45 @@ function confBadge(level) {
 function fld(l, v) { return '<div class="field"><div class="lbl">' + l + '</div><div class="val">' + v + '</div></div>'; }
 function esc(s) { return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+/* ── Drivetrain helpers ── */
+function getTeamDrivetrain(teamNum) {
+    for (var i = 0; i < pitData.length; i++) {
+        if (pitData[i].Team === teamNum) return pitData[i].Drivetrain || null;
+    }
+    return null;
+}
+function drivetrainBadge(drivetrain) {
+    if (!drivetrain || drivetrain === 'Not specified') return '';
+    var isSwerve = drivetrain.indexOf('Swerve') !== -1;
+    var isTank   = drivetrain.indexOf('Tank') !== -1;
+    var color = isSwerve ? '#58a6ff' : isTank ? '#f0883e' : '#8b949e';
+    var label = isSwerve ? 'Swerve' : isTank ? 'Tank' : drivetrain;
+    var icon  = isSwerve ? '&#128309;' : isTank ? '&#129310;' : '&#9881;';
+    return '<span style="display:inline-block;font-size:11px;padding:1px 6px;background:rgba(0,0,0,0.35);border-radius:6px;color:' + color + ';border:1px solid ' + color + '44;">' + icon + ' ' + label + '</span>';
+}
+function modeVal(arr) {
+    if (!arr || !arr.length) return null;
+    var cnt = {};
+    arr.forEach(function(v) { if (v) cnt[v] = (cnt[v] || 0) + 1; });
+    var best = null, bestN = 0;
+    Object.keys(cnt).forEach(function(k) { if (cnt[k] > bestN) { best = k; bestN = cnt[k]; } });
+    return best;
+}
+
 /* ── Team Detail Drill-Down ── */
 function showTeamDetail(team) {
     var s = teamStats[team]; if (!s) return;
+    // Activate WCI tab so detail is visible regardless of which tab triggered this
+    document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+    document.querySelector('[data-tab="wci"]').classList.add('active');
+    document.getElementById('tab-wci').classList.add('active');
     var pit = null;
     for (var i = 0; i < pitData.length; i++) { if (pitData[i].Team === team) { pit = pitData[i]; break; } }
 
-    var h = '<button class="back-btn" onclick="renderWCI()">&larr; Back to rankings</button>';
+    var h = '<button class="back-btn" onclick="activeDetailTeam=null; renderWCI()">&larr; Back to rankings</button>';
     h += '<div class="card">';
+    activeDetailTeam = team;
     h += '<h3>Team ' + team + ' ' + tierBadge(s.tier) + ' <span class="role ' + s.role.cls + '">' + s.role.icon + ' ' + s.role.name + '</span> ' + confBadge(s.confLevel) + '</h3>';
 
     // WCI component bars
@@ -1331,6 +1416,21 @@ function showTeamDetail(team) {
     h += fld('Defense', s.defenseGames + '/' + s.n + ' games');
     h += fld('Fouls', s.foulsMinor + ' minor, ' + s.foulsMajor + ' major');
     h += fld('Scouts', Object.keys(s.scouts).join(', '));
+
+    // New: hopper size + shooting style from match history
+    var hopperMode = modeVal(s.matches.map(function(m) { return m.HopperSize; }));
+    var shootMode  = modeVal(s.matches.map(function(m) { return m.ShootingStyle; }));
+    if (hopperMode)  h += fld('Hopper Size', hopperMode);
+    if (shootMode)   h += fld('Shooting Style', shootMode);
+
+    // New: avg official per-robot estimate
+    var officialScores = s.matches.map(function(m) { return parseInt(m.OfficialAllianceScore, 10) || 0; }).filter(function(v) { return v > 0; });
+    if (officialScores.length) {
+        var avgOfficial = officialScores.reduce(function(a, b) { return a + b; }, 0) / officialScores.length;
+        var perRobot    = (avgOfficial / 3).toFixed(1);
+        h += fld('Avg Official Score', avgOfficial.toFixed(1) + ' pts (&#247;3 &asymp; <strong>' + perRobot + '/robot</strong>)');
+    }
+
     h += '</div>';
 
     // Large trend chart
@@ -1368,7 +1468,7 @@ function showTeamDetail(team) {
         if (pit.Notes) h += '<div class="notes-box"><strong>Strategy:</strong> ' + esc(pit.Notes) + '</div>';
     }
 
-    // Match history — flag conflict matches
+    // Match history — consensus rows with raw-record exclude controls
     var hasConflicts = s.agreementArr.some(function(p) { return p < 80; });
     h += '<h3 style="margin-top:16px;">Match History';
     if (hasConflicts) h += ' <span style="font-size:12px;color:#f85149;">&#9888; scout conflicts detected</span>';
@@ -1382,7 +1482,6 @@ function showTeamDetail(team) {
         h += '<tr' + (isConflict ? ' class="conflict-row"' : '') + '>';
         h += '<td>' + (m.Match || '?') + '</td>';
         h += '<td style="color:' + (m.Alliance === 'red' ? '#f85149' : '#58a6ff') + '">' + (m.Alliance || '') + '</td>';
-        // Agreement column
         if (agr && agr.count > 1) {
             h += '<td>' + agreeBadge(agr.pct);
             if (agr.conflicts.length) h += '<div class="conflict-fields" title="' + esc(agr.conflicts.join(', ')) + '">&#9888; ' + agr.conflicts.length + ' field' + (agr.conflicts.length > 1 ? 's' : '') + '</div>';
@@ -1399,6 +1498,24 @@ function showTeamDetail(team) {
         h += '<td>' + (m.Scout || '') + '</td>';
         h += '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(m.Notes || '') + '">' + (m.Notes || '') + '</td>';
         h += '</tr>';
+
+        // Raw observations for this match — individual exclude controls
+        var rawRecs = matchData.filter(function(r) { return r.Match === m.Match && r.Team === m.Team; });
+        if (rawRecs.length > 1 || rawRecs.some(function(r) { return !!excludedKeys[recordKey(r)]; })) {
+            rawRecs.forEach(function(r) {
+                var rKey       = recordKey(r);
+                var safeKey    = rKey.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                var isExc      = !!excludedKeys[rKey];
+                var btnLabel   = isExc ? '&#10003; Re-include' : '&#10005; Exclude from analysis';
+                var btnColor   = isExc ? '#3fb950' : '#f85149';
+                var rowOpacity = isExc ? 'opacity:0.4;' : '';
+                h += '<tr style="font-size:11px;background:rgba(0,0,0,0.25);' + rowOpacity + '">';
+                h += '<td colspan="2" style="padding-left:20px;color:#8b949e;">&#8627; ' + (r.Scout || 'Unknown scout') + '</td>';
+                h += '<td colspan="2" style="color:#8b949e;">' + (r.Timestamp ? new Date(r.Timestamp).toLocaleTimeString() : '') + '</td>';
+                h += '<td colspan="7"><button onclick="toggleExclude(\'' + safeKey + '\')" style="font-size:10px;padding:2px 10px;background:rgba(0,0,0,0.3);border:1px solid ' + btnColor + ';color:' + btnColor + ';border-radius:4px;cursor:pointer;">' + btnLabel + '</button></td>';
+                h += '</tr>';
+            });
+        }
     });
     h += '</tbody></table></div>';
 
@@ -1547,21 +1664,31 @@ function radarCompareSVG(teams) {
    TAB: MATCH LOG
    ================================================================ */
 function renderMatches() {
-    var q = document.getElementById('mSearch').value.trim().toLowerCase();
+    var q  = document.getElementById('mSearch').value.trim().toLowerCase();
     var ft = document.getElementById('mFilter').value;
+    // Show consensus rows (one per Match-Team) — clean, deduplicated view
     var data = consensusData.slice().sort(function(a, b) { return naturalSortMatch(a.Match, b.Match); });
     if (ft) data = data.filter(function(m) { return m.Team === ft; });
-    if (q) data = data.filter(function(m) { return m.Team.indexOf(q) !== -1 || (m.Scout || '').toLowerCase().indexOf(q) !== -1; });
-    var h = '<table><thead><tr><th>Match</th><th>Team</th><th>Alliance</th><th>Scout(s)</th><th>Agreement</th><th>Auto</th><th>Teleop Fuel</th><th>Shooting</th><th>Climb</th><th>Defense</th><th>Status</th><th>Consistency</th><th>Notes</th></tr></thead><tbody>';
+    if (q)  data = data.filter(function(m) { return m.Team.indexOf(q) !== -1 || (m.Scout || '').toLowerCase().indexOf(q) !== -1; });
+
+    var excCount = Object.keys(excludedKeys).length;
+    var h = '';
+    if (excCount > 0) {
+        h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">';
+        h += '<span style="background:rgba(248,81,73,0.15);border:1px solid #f85149;color:#f85149;padding:4px 12px;border-radius:6px;font-size:12px;">&#9888; ' + excCount + ' record' + (excCount !== 1 ? 's' : '') + ' excluded from analysis &mdash; click a team to manage</span>';
+        h += '<button class="btn-sm" onclick="clearAllExclusions()" style="font-size:11px;padding:3px 10px;">&#8634; Re-include All</button>';
+        h += '</div>';
+    }
+
+    h += '<table><thead><tr><th>Match</th><th>Team</th><th>Alliance</th><th>Scout(s)</th><th>Agreement</th><th>Auto</th><th>Teleop Fuel</th><th>Shooting</th><th>Climb</th><th>Defense</th><th>Status</th><th>Consistency</th><th>Notes</th></tr></thead><tbody>';
     data.forEach(function(m) {
         var key = (m.Match || '') + '||' + (m.Team || '');
         var agr = matchAgreement[key];
         var isConflict = agr && agr.count > 1 && agr.pct < 80;
-        h += '<tr' + (isConflict ? ' class="conflict-row"' : '') + '>';
+        h += '<tr' + (isConflict ? ' class="conflict-row"' : '') + ' onclick="showTeamDetail(\'' + (m.Team||'') + '\')" style="cursor:pointer">';
         h += '<td>' + (m.Match || '') + '</td><td><strong>' + (m.Team || '') + '</strong></td>';
         h += '<td style="color:' + (m.Alliance === 'red' ? '#f85149' : '#58a6ff') + '">' + (m.Alliance || '') + '</td>';
         h += '<td>' + (m.Scout || '') + '</td>';
-        // Scout Agreement column
         if (agr && agr.count > 1) {
             h += '<td>' + agreeBadge(agr.pct);
             if (agr.conflicts.length) h += '<div class="conflict-fields">&#9888; ' + agr.conflicts.join(', ') + '</div>';
@@ -1728,8 +1855,23 @@ function renderPickList() {
     Object.keys(teamStats).forEach(function(t) { teams.push(teamStats[t]); });
     teams.sort(function(a, b) { return b.value - a.value; });
 
+    // Populate alliance card dropdowns
+    var picks = ['alliancePick1','alliancePick2','alliancePick3'];
+    picks.forEach(function(id, idx) {
+        var sel = document.getElementById(id);
+        if (!sel) return;
+        var curr = sel.value;
+        sel.innerHTML = '<option value="">' + (idx === 2 ? 'Team 3 (opt)' : 'Team ' + (idx+1)) + '</option>';
+        teams.forEach(function(s) {
+            var opt = document.createElement('option');
+            opt.value = s.team; opt.textContent = s.team + ' (' + s.tier + ')';
+            if (s.team === curr) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    });
+
     var h = '<table><thead><tr>';
-    h += '<th>#</th><th>Team</th><th>Tier</th><th>Role</th><th>Value</th><th>WCI</th>';
+    h += '<th>#</th><th>Team</th><th>Drive</th><th>Tier</th><th>Role</th><th>Value</th><th>WCI</th>';
     h += '<th>&#963; Var</th><th>Conf</th><th>Strengths</th><th>Concerns</th><th>Trend</th>';
     h += '</tr></thead><tbody>';
 
@@ -1756,8 +1898,10 @@ function renderPickList() {
         if (s.trend < -2) con.push('Declining');
 
         var tIcon = s.trendDir === 'up' ? '<span class="trend-up">&#9650;</span>' : s.trendDir === 'down' ? '<span class="trend-down">&#9660;</span>' : '&mdash;';
+        var drBadge = drivetrainBadge(getTeamDrivetrain(s.team));
         h += '<tr><td>' + (i+1) + '</td>';
         h += '<td><strong class="' + s.pctClass + '">' + s.team + '</strong></td>';
+        h += '<td>' + (drBadge || '<span style="color:#484f58;font-size:11px;">?</span>') + '</td>';
         h += '<td>' + tierBadge(s.tier) + '</td>';
         h += '<td><span class="role ' + s.role.cls + '">' + s.role.icon + ' ' + s.role.name + '</span></td>';
         h += '<td><strong>' + s.value.toFixed(1) + '</strong></td>';
@@ -1771,6 +1915,68 @@ function renderPickList() {
     h += '</tbody></table>';
     if (!teams.length) h = '<div class="empty"><h3>No data</h3></div>';
     document.getElementById('pickContent').innerHTML = h;
+}
+
+function renderAllianceCard() {
+    var t1 = document.getElementById('alliancePick1').value;
+    var t2 = document.getElementById('alliancePick2').value;
+    var t3 = document.getElementById('alliancePick3').value;
+    var picks = [t1, t2, t3].filter(Boolean);
+    var out   = document.getElementById('allianceCardResult');
+    if (picks.length < 2) { out.innerHTML = '<span style="color:#f85149;font-size:12px;">Select at least 2 teams to build the card.</span>'; return; }
+
+    var html = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;">';
+    picks.forEach(function(team) {
+        var s    = teamStats[team];
+        var pit  = null;
+        for (var i = 0; i < pitData.length; i++) { if (pitData[i].Team === team) { pit = pitData[i]; break; } }
+
+        var driveRaw = pit ? (pit.Drivetrain || null) : null;
+        var drBadge  = drivetrainBadge(driveRaw);
+
+        // mode values from match history
+        var hopM   = s ? modeVal(s.matches.map(function(m) { return m.HopperSize; })) || (pit ? pit.FuelCapacity : null) : null;
+        var shootM = s ? modeVal(s.matches.map(function(m) { return m.ShootingStyle; })) : null;
+
+        // best climb
+        var climbOrder = {'T':5,'H':4,'M':3,'L':2,'None':1,'Failed':0};
+        var bestClimb = 'N/A';
+        if (s) s.matches.forEach(function(m) { var c = m.TeleopTower; if (c && (climbOrder[c]||0) > (climbOrder[bestClimb]||0)) bestClimb = c; });
+
+        // reliability + consistency
+        var rel   = s ? s.reliability + '%' : 'N/A';
+        var conPct = s ? (s.consistWCI * 100).toFixed(0) + '%' : 'N/A';
+        var wci   = s ? s.totalWCI.toFixed(1) : '—';
+        var tier  = s ? tierBadge(s.tier) : '';
+        var tbaUrl = 'https://www.thebluealliance.com/team/' + team + '/2026';
+
+        // avg official /robot
+        var perRobotStr = '';
+        if (s) {
+            var officialScores = s.matches.map(function(m) { return parseInt(m.OfficialAllianceScore, 10) || 0; }).filter(function(v) { return v > 0; });
+            if (officialScores.length) {
+                var avgO = officialScores.reduce(function(a, b) { return a + b; }, 0) / officialScores.length;
+                perRobotStr = '~' + (avgO / 3).toFixed(1) + '/robot';
+            }
+        }
+
+        html += '<div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 16px;min-width:200px;flex:1;">';
+        html += '<div style="font-size:22px;font-weight:800;color:#e6edf3;margin-bottom:4px;">Team ' + team + ' ' + tier + '</div>';
+        html += '<div style="margin-bottom:8px;">' + (drBadge || '<span style="color:#484f58;font-size:11px;">Drive: N/A</span>') + '</div>';
+        html += '<table style="font-size:12px;border:none;width:100%;">';
+        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;">Shooting</td><td style="color:#e6edf3;">' + (shootM || 'Unknown') + '</td></tr>';
+        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;">Hopper</td><td style="color:#e6edf3;">' + (hopM || 'Unknown') + '</td></tr>';
+        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;">Best Climb</td><td style="color:#e6edf3;">' + bestClimb + '</td></tr>';
+        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;">Reliability</td><td style="color:#3fb950;">' + rel + '</td></tr>';
+        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;">Consistency</td><td style="color:#DAA520;">' + conPct + '</td></tr>';
+        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;">WCI</td><td style="color:#58a6ff;font-weight:700;">' + wci + '</td></tr>';
+        if (perRobotStr) html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;">Score Est.</td><td style="color:#e6edf3;">' + perRobotStr + '</td></tr>';
+        html += '</table>';
+        html += '<div style="margin-top:8px;"><a href="' + tbaUrl + '" target="_blank" style="color:#58a6ff;font-size:11px;">&#128279; TBA Profile</a></div>';
+        html += '</div>';
+    });
+    html += '</div>';
+    out.innerHTML = html;
 }
 
 /* ================================================================
@@ -1842,7 +2048,7 @@ function buildCSVFromApp(rawMatches, rawPits) {
     var q = function(v) { return '"' + String(v || '').replace(/"/g, '""') + '"'; };
     var lines = [];
     if (rawMatches.length) {
-        lines.push('Type,Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes,Timestamp');
+        lines.push('Type,Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,HopperSize,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,OfficialAllianceScore,Notes,Timestamp');
         rawMatches.forEach(function(m) {
             lines.push([
                 'Match',
@@ -1857,6 +2063,7 @@ function buildCSVFromApp(rawMatches, rawPits) {
                 q(m.autoTower || 'None'),
                 q(m.teleopFuelCategory || 'None'),
                 q(m.shootingStyle || 'Not observed'),
+                q(m.hopperSize || 'Unknown'),
                 q(m.navigation || 'Not observed'),
                 q(m.teleopTower || 'None'),
                 q(m.playedDefense || 'No'),
@@ -1866,6 +2073,7 @@ function buildCSVFromApp(rawMatches, rawPits) {
                 q(m.consistencyRating || 'Reliable'),
                 q(m.humanPlayerTeam || ''),
                 q(m.humanPlayerRating || 'Not observed'),
+                m.officialAllianceScore || 0,
                 q(m.notes || ''),
                 q(m.timestamp || '')
             ].join(','));
@@ -2025,10 +2233,17 @@ document.querySelectorAll('.tab').forEach(function(tab) {
 });
 
 document.getElementById('fileInput').addEventListener('change', function(e) {
-    var file = e.target.files[0]; if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(ev) { appendCSVText(ev.target.result); document.getElementById('importZone').style.display = 'none'; };
-    reader.readAsText(file);
+    var files = Array.from(e.target.files); if (!files.length) return;
+    var remaining = files.length;
+    files.forEach(function(file) {
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+            appendCSVText(ev.target.result);
+            remaining--;
+            if (remaining === 0) document.getElementById('importZone').style.display = 'none';
+        };
+        reader.readAsText(file);
+    });
 });
 
 /* ---- Auto-import when pasting directly into the pasteArea textarea ---- */
@@ -2075,12 +2290,17 @@ iz.addEventListener('dragover', function(e) { e.preventDefault(); iz.classList.a
 iz.addEventListener('dragleave', function() { iz.classList.remove('dragover'); });
 iz.addEventListener('drop', function(e) {
     e.preventDefault(); iz.classList.remove('dragover');
-    var file = e.dataTransfer.files[0]; if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(ev) { appendCSVText(ev.target.result); iz.style.display = 'none'; };
-    reader.readAsText(file);
-});
-
+    var files = Array.from(e.dataTransfer.files); if (!files.length) return;
+    var remaining = files.length;
+    files.forEach(function(file) {
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+            appendCSVText(ev.target.result);
+            remaining--;
+            if (remaining === 0) iz.style.display = 'none';
+        };
+        reader.readAsText(file);
+    });
 /**
  * Normalize QR payload text before parsing.
  * Fixes two known issues with certain QR scanners / paste scenarios:
@@ -2113,7 +2333,7 @@ function qrTextToCSV(text) {
         return !u.startsWith('#SCOUT,') && !u.startsWith('MATCH,TEAM,');
     });
     if (dataLines.length === 0) return null;
-    return 'Type,Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes,Timestamp\n'
+    return 'Type,Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,HopperSize,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,OfficialAllianceScore,Notes,Timestamp\n'
         + dataLines.map(function(l) { return 'Match,' + l; }).join('\n');
 }
 
@@ -2133,11 +2353,14 @@ function importFromPaste() {
 
 
 document.getElementById('appendFileInput').addEventListener('change', function(e) {
-    var file = e.target.files[0]; if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(ev) { appendCSVText(ev.target.result); };
-    reader.readAsText(file);
-    e.target.value = ''; // reset so same file can be re-picked
+    var files = Array.from(e.target.files); if (!files.length) return;
+    var remaining = files.length;
+    files.forEach(function(file) {
+        var reader = new FileReader();
+        reader.onload = function(ev) { appendCSVText(ev.target.result); };
+        reader.readAsText(file);
+    });
+    e.target.value = ''; // reset so same files can be re-picked
 });
 
 /* ================================================================
@@ -2451,6 +2674,7 @@ function showScheduleOnly() {
 }
 
 /* ---- AUTO-RESTORE on page load ---- */
+loadExcluded();
 loadState();
 </script>
 </body>
