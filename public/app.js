@@ -1741,16 +1741,18 @@ function mergeImportedMatches(importedMatches) {
 
 function openClearDataModal() {
     const matches = getLocalMatches();
-    if (matches.length === 0) { showNotification('No data to clear', 'info'); return; }
+    const pits = getLocalPitScouts();
+    if (matches.length === 0 && pits.length === 0) { showNotification('No data to clear', 'info'); return; }
     closeModal();
     setTimeout(() => {
         isModalOpen = true;
         const modal = document.createElement('div');
         modal.className = 'share-modal';
+        const summary = [matches.length > 0 ? `<strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong>` : '', pits.length > 0 ? `<strong>${pits.length} pit scout${pits.length !== 1 ? 's' : ''}</strong>` : ''].filter(Boolean).join(' and ');
         modal.innerHTML = `
             <div class="share-content">
                 <h2 style="color: #dc3545; font-size: 28px;"> Clear All Data</h2>
-                <p style="font-size: 18px; margin: 25px 0;">You are about to delete <strong>${matches.length} match${matches.length !== 1 ? 'es' : ''}</strong> from your local storage.</p>
+                <p style="font-size: 18px; margin: 25px 0;">You are about to delete ${summary} from your local storage.</p>
                 <p style="font-size: 16px; color: #ff9800; margin: 25px 0;"><strong>Warning:</strong> This action cannot be undone. Make sure you have exported your data first if you need to keep it.</p>
                 <div class="share-buttons">
                     <button class="share-btn" onclick="openTransferModal()">Transfer First</button>
