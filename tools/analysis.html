@@ -2253,11 +2253,7 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
     });
 });
 
-/* ---- Auto-import when pasting directly into the pasteArea textarea ---- */
-document.getElementById('pasteArea').addEventListener('paste', function() {
-    // Let browser insert text first, then process
-    setTimeout(importFromPaste, 50);
-});
+/* ---- pasteArea: no auto-import; user clicks Import button explicitly ---- */
 
 /* ---- Global paste handler: Ctrl+V anywhere on the page ---- */
 document.addEventListener('paste', function(e) {
@@ -2346,16 +2342,21 @@ function qrTextToCSV(text) {
 
 function importFromPaste() {
     var text = document.getElementById('pasteArea').value.trim();
-    if (!text) return;
-    if (/[#]SCOUT,v3,/i.test(text)) {
-        var csvText = qrTextToCSV(text);
-        if (!csvText) { showToast('No data rows found in pasted text', 'error'); return; }
-        appendCSVText(csvText);
-    } else {
-        appendCSVText(text);
+    if (!text) { showToast('Paste your CSV data into the box first, then click Import.', 'error'); return; }
+    try {
+        if (/[#]SCOUT,v3,/i.test(text)) {
+            var csvText = qrTextToCSV(text);
+            if (!csvText) { showToast('No data rows found in pasted text', 'error'); return; }
+            appendCSVText(csvText);
+        } else {
+            appendCSVText(text);
+        }
+        document.getElementById('pasteArea').value = '';
+        document.getElementById('importZone').style.display = 'none';
+    } catch(e) {
+        showToast('Import error: ' + e.message, 'error');
+        console.error('importFromPaste error:', e);
     }
-    document.getElementById('pasteArea').value = '';
-    document.getElementById('importZone').style.display = 'none';
 }
 
 
