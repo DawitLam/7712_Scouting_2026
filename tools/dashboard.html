@@ -308,6 +308,7 @@
                 <select id="wciSort" onchange="renderWCI()">
                     <option value="total">Total WCI</option>
                     <option value="auto">Auto WCI</option>
+                    <option value="teleop_eg">Teleop+Endgame (T+EG)</option>
                     <option value="teleop">Teleop WCI</option>
                     <option value="endgame">Endgame WCI</option>
                     <option value="consistency">Consistency</option>
@@ -870,7 +871,9 @@ function pointsAuto(m) {
     if (method.indexOf('Moved and shot') !== -1 && method.indexOf('Scored at spot') !== -1) pts += 4;
     else if (method.indexOf('Moved and shot') !== -1) pts += 3;
     else if (method.indexOf('Scored at spot') !== -1) pts += 2;
-    if (method.indexOf('Collected') !== -1) pts += 0.5;
+    if (method.indexOf('Collected from depot') !== -1) pts += 1.5;
+    else if (method.indexOf('Collected from station') !== -1) pts += 1.0;
+    else if (method.indexOf('Collected') !== -1) pts += 0.5; // catch-all for future form variants
     var fuel = (m.AutoFuelResult || 'None');
     // Calibrated for REBUILT 2026: auto fuel high-value; 'Added more fuel' = exceptional robot
     if (fuel.indexOf('Added more fuel') !== -1) pts += 9;
@@ -1122,6 +1125,7 @@ function computeStats() {
         s.teleopWCI  = ema(s.teleopArr);
         s.endgameWCI = ema(s.endgameArr);
         s.totalWCI   = ema(s.totalArr);
+        s.teleopEgWCI = s.teleopWCI + s.endgameWCI;  // combined field performance (teleop + endgame)
         s.defenseWCI = ema(s.defenseArr);
         s.consistWCI = ema(s.consistArr);
         s.reliability = s.n > 0 ? Math.round((s.working / s.n) * 100) : 0;
@@ -1327,6 +1331,7 @@ function renderWCI() {
     if (q) teams = teams.filter(function(s) { return s.team.indexOf(q) !== -1 || (tbaTeamNames[s.team] || '').toLowerCase().indexOf(q) !== -1; });
 
     var sortFns = {
+        teleop_eg:  function(a, b) { return b.teleopEgWCI - a.teleopEgWCI; },
         total:      function(a, b) { return b.totalWCI - a.totalWCI; },
         auto:       function(a, b) { return b.autoWCI - a.autoWCI; },
         teleop:     function(a, b) { return b.teleopWCI - a.teleopWCI; },
@@ -1343,7 +1348,9 @@ function renderWCI() {
     var h = '<table><thead><tr>';
     h += '<th>#</th><th>Team</th><th>Tier</th><th>Role</th><th>Drive</th>';
     h += '<th class="tooltip" data-tip="Weighted Contribution Index — our composite scoring metric">Total WCI</th>';
-    h += '<th>Auto</th><th>Teleop</th><th>Endgame</th>';
+    h += '<th class="tooltip" data-tip="Auto WCI — mobility + fuel scoring in autonomous">Auto</th>';
+    h += '<th class="tooltip" data-tip="Teleop + Endgame combined — overall field performance">T+EG</th>';
+    h += '<th>Teleop</th><th>Endgame</th>';
     h += '<th class="tooltip" data-tip="Standard deviation — lower = more predictable">&#963; Var</th>';
     h += '<th class="tooltip" data-tip="How confident we are in this data (match count + scout diversity)">Conf</th>';
     h += '<th>Trend</th><th>N</th>';
@@ -1362,6 +1369,7 @@ function renderWCI() {
         h += '<td>' + (drBadge || '<span style="color:#484f58;font-size:11px;">N/A</span>') + '</td>';
         h += '<td><div class="wci-bar"><div class="wci-track"><div class="wci-fill" style="width:' + pctW + '%;background:' + tierColor(s.tier) + '">' + s.totalWCI.toFixed(1) + '</div></div></div></td>';
         h += '<td>' + s.autoWCI.toFixed(1) + '</td>';
+        h += '<td><strong>' + s.teleopEgWCI.toFixed(1) + '</strong></td>';
         h += '<td>' + s.teleopWCI.toFixed(1) + '</td>';
         h += '<td>' + s.endgameWCI.toFixed(1) + '</td>';
         h += '<td style="color:' + (s.variance <= 2 ? '#3fb950' : s.variance <= 4 ? '#DAA520' : '#f85149') + '">' + s.variance.toFixed(1) + '</td>';
