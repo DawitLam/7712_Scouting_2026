@@ -1944,6 +1944,8 @@ function renderAllianceCard() {
         // mode values from match history
         var hopM   = s ? modeVal(s.matches.map(function(m) { return m.HopperSize; })) || (pit ? pit.FuelCapacity : null) : null;
         var shootM = s ? modeVal(s.matches.map(function(m) { return m.ShootingStyle; })) : null;
+        var shooterType = pit ? (pit.ShooterType || null) : null;
+        var autoCapability = pit ? (pit.AutoCapability || null) : null;
 
         // best climb
         var climbOrder = {'Level 3':5,'Level 2':4,'Level 1':3,'None':1,'Failed':0,'N/A':0};
@@ -1967,19 +1969,55 @@ function renderAllianceCard() {
             }
         }
 
-        html += '<div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 16px;min-width:200px;flex:1;">';
+        // match notes: collect all non-empty notes from match history
+        var matchNotes = [];
+        if (s) s.matches.forEach(function(m) {
+            var note = (m.Notes || '').trim();
+            if (note) matchNotes.push({ match: m.Match || '?', scout: m.Scout || '?', note: note });
+        });
+        // also pit notes
+        var pitNotes = pit ? (pit.Notes || '').trim() : '';
+
+        html += '<div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 16px;min-width:220px;flex:1;">';
         html += '<div style="font-size:22px;font-weight:800;color:#e6edf3;margin-bottom:4px;">Team ' + team + ' ' + tier + '</div>';
         html += '<div style="margin-bottom:8px;">' + (drBadge || '<span style="color:#484f58;font-size:11px;">Drive: N/A</span>') + '</div>';
-        html += '<table style="font-size:12px;border:none;width:100%;">';
-        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;">Shooting</td><td style="color:#e6edf3;">' + (shootM || 'Unknown') + '</td></tr>';
-        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;">Hopper</td><td style="color:#e6edf3;">' + (hopM || 'Unknown') + '</td></tr>';
-        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;">Best Climb</td><td style="color:#e6edf3;">' + bestClimb + '</td></tr>';
-        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;">Reliability</td><td style="color:#3fb950;">' + rel + '</td></tr>';
-        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;">Consistency</td><td style="color:#DAA520;">' + conPct + '</td></tr>';
-        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;">WCI</td><td style="color:#58a6ff;font-weight:700;">' + wci + '</td></tr>';
-        if (perRobotStr) html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;">Score Est.</td><td style="color:#e6edf3;">' + perRobotStr + '</td></tr>';
+
+        // Stats table
+        html += '<table style="font-size:12px;border:none;width:100%;margin-bottom:8px;">';
+        if (shooterType) html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;white-space:nowrap;">Shooter Type</td><td style="color:#e6edf3;">' + esc(shooterType) + '</td></tr>';
+        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;white-space:nowrap;">Shoot Style</td><td style="color:#e6edf3;">' + (shootM || 'Unknown') + '</td></tr>';
+        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;white-space:nowrap;">Hopper</td><td style="color:#e6edf3;">' + (hopM || 'Unknown') + '</td></tr>';
+        if (autoCapability) html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;white-space:nowrap;">Auto</td><td style="color:#e6edf3;">' + esc(autoCapability) + '</td></tr>';
+        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;white-space:nowrap;">Best Climb</td><td style="color:#e6edf3;">' + bestClimb + '</td></tr>';
+        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;white-space:nowrap;">Reliability</td><td style="color:#3fb950;">' + rel + '</td></tr>';
+        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;white-space:nowrap;">Consistency</td><td style="color:#DAA520;">' + conPct + '</td></tr>';
+        html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;white-space:nowrap;">WCI</td><td style="color:#58a6ff;font-weight:700;">' + wci + '</td></tr>';
+        if (perRobotStr) html += '<tr><td style="color:#8b949e;padding:2px 6px 2px 0;white-space:nowrap;">Score Est.</td><td style="color:#e6edf3;">' + perRobotStr + '</td></tr>';
         html += '</table>';
-        html += '<div style="margin-top:8px;"><a href="' + tbaUrl + '" target="_blank" style="color:#58a6ff;font-size:11px;">&#128279; TBA Profile</a></div>';
+
+        // Pit notes (strategy/build)
+        if (pitNotes) {
+            html += '<div style="border-top:1px solid #21262d;padding-top:8px;margin-top:2px;">';
+            html += '<div style="font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">&#9881; Pit Notes</div>';
+            html += '<div style="font-size:12px;color:#c9d1d9;line-height:1.5;">' + esc(pitNotes) + '</div>';
+            html += '</div>';
+        }
+
+        // Match observation notes
+        if (matchNotes.length) {
+            html += '<div style="border-top:1px solid #21262d;padding-top:8px;margin-top:8px;">';
+            html += '<div style="font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">&#128221; Scout Observations</div>';
+            matchNotes.forEach(function(n) {
+                html += '<div style="margin-bottom:6px;">';
+                html += '<span style="display:inline-block;background:#21262d;color:#DAA520;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-right:5px;">' + esc(n.match) + '</span>';
+                html += '<span style="font-size:10px;color:#484f58;">' + esc(n.scout) + '</span>';
+                html += '<div style="font-size:12px;color:#c9d1d9;margin-top:2px;line-height:1.4;">' + esc(n.note) + '</div>';
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+
+        html += '<div style="margin-top:10px;"><a href="' + tbaUrl + '" target="_blank" style="color:#58a6ff;font-size:11px;">&#128279; TBA Profile</a></div>';
         html += '</div>';
     });
     html += '</div>';
