@@ -510,7 +510,7 @@ function deletePitScout(teamNumber) {
 // When robot status is Disabled or No show, disable scoring fields
 function handleRobotStatusChange(value) {
     const disable = (value === 'Disabled' || value === 'No show');
-    const ids = ['autoFuelCategory','autoTower','teleopFuelCategory','shootingStyle','hopperSize','navigation','teleopTower','playedDefense','defenseEffectiveness','consistencyRating'];
+    const ids = ['autoFuelCategory','autoTower','teleopFuelCategory','shootingStyle','hopperSize','navigation','teleopTower','playedDefense','defenseEffectiveness','consistencyRating','shootingAccuracy'];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -525,11 +525,18 @@ function handleRobotStatusChange(value) {
     });
     if (disable) {
         // Auto-fill disabled values
-        const sets = {autoFuelCategory:'None',autoTower:'None',teleopFuelCategory:'None',shootingStyle:'Not observed',hopperSize:'Unknown',navigation:'Not observed',teleopTower:'None',playedDefense:'No',defenseEffectiveness:'Not applicable',consistencyRating:'Unreliable'};
+        const sets = {autoFuelCategory:'None',autoTower:'None',teleopFuelCategory:'None',shootingStyle:'Not observed',hopperSize:'Unknown',navigation:'Not observed',teleopTower:'None',playedDefense:'No',defenseEffectiveness:'Not applicable',consistencyRating:'Unreliable',shootingAccuracy:'Not observed'};
         Object.entries(sets).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val; });
         document.querySelectorAll('input[name="autoScoringMethod"]').forEach(cb => cb.checked = false);
         showNotification('Robot disabled — scoring fields locked', 'warning');
     }
+}
+
+// Counter helper for fuel tracking buttons
+function adjustCounter(id, delta) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = Math.max(0, (parseInt(el.value) || 0) + delta);
 }
 
 // Pit Scout: Robot photo capture
@@ -656,6 +663,8 @@ function submitMatch(event) {
         shootingStyle: formData.get('shootingStyle') || 'Not observed',
         hopperSize: formData.get('hopperSize') || 'Unknown',
         navigation: formData.get('navigation') || 'Not observed',
+        shootingAccuracy: formData.get('shootingAccuracy') || 'Not observed',
+        teleopMaxShot: parseInt(formData.get('teleopMaxShot')) || 0,
         teleopTower: formData.get('teleopTower') || 'None',
         playedDefense: formData.get('playedDefense') || 'No',
         defenseEffectiveness: formData.get('defenseEffectiveness') || 'Not applicable',
@@ -674,6 +683,8 @@ function submitMatch(event) {
     localStorage.setItem(MATCHES_KEY, JSON.stringify(matches));
     showNotification(`Match ${matchData.matchNumber} saved successfully!`, 'success');
     form.reset();
+    const maxShotEl = document.getElementById('teleopMaxShot');
+    if (maxShotEl) maxShotEl.value = 0;
     setTimeout(() => navigateToPage('homePage'), 2000);
 }
 
@@ -838,7 +849,7 @@ function generateCSV() {
     
     // Match Data CSV
     if (matches.length > 0) {
-        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','StartPosition','AutoScoringMethod','AutoFuelResult','AutoTower','TeleopFuelScored','ShootingStyle','HopperSize','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','HumanPlayerTeam','HumanPlayerRating','OfficialAllianceScore','Notes','Timestamp'];
+        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','StartPosition','AutoScoringMethod','AutoFuelResult','AutoTower','TeleopFuelScored','ShootingStyle','ShootingAccuracy','MaxSingleShot','HopperSize','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','HumanPlayerTeam','HumanPlayerRating','OfficialAllianceScore','Notes','Timestamp'];
         const matchRows = matches.map(m => [
                 'Match',
                 q(m.matchNumber),
@@ -852,6 +863,8 @@ function generateCSV() {
                 q(m.autoTower || 'None'),
                 q(m.teleopFuelCategory || 'None'),
                 q(m.shootingStyle || 'Not observed'),
+                q(m.shootingAccuracy || 'Not observed'),
+                m.teleopMaxShot || 0,
                 q(m.hopperSize || 'Unknown'),
                 q(m.navigation || 'Not observed'),
                 q(m.teleopTower || 'None'),
@@ -986,7 +999,7 @@ async function generateQR(text, size = 300) {
 function prefixForQR(csvText) { return `TEAM7712CSV\n${csvText}`; }
 
 // CSV headers for QR payloads (v3 format)
-const QR_CSV_HEADERS = 'Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,HopperSize,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,OfficialAllianceScore,Notes,Timestamp';
+const QR_CSV_HEADERS = 'Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,ShootingAccuracy,MaxSingleShot,HopperSize,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,OfficialAllianceScore,Notes,Timestamp';
 
 function encodeMatchRecord(match) {
     // v3 format: CSV row — all string fields quoted to handle commas in multi-select values

@@ -144,6 +144,19 @@
                     </select>
                 </div>
                 <div class="form-group">
+                    <label>Max FUEL in One Shot</label>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
+                        <input type="number" id="teleopMaxShot" name="teleopMaxShot" value="0" min="0"
+                            style="width: 72px; text-align: center; font-size: 22px; font-weight: bold; padding: 8px; border: 2px solid #DAA520; border-radius: 8px; background: #1a1a1a; color: #DAA520;">
+                        <button type="button" onclick="adjustCounter('teleopMaxShot', 1)" class="btn" style="min-width: 46px; padding: 10px 6px; font-size: 15px;">+1</button>
+                        <button type="button" onclick="adjustCounter('teleopMaxShot', 2)" class="btn" style="min-width: 46px; padding: 10px 6px; font-size: 15px;">+2</button>
+                        <button type="button" onclick="adjustCounter('teleopMaxShot', 5)" class="btn" style="min-width: 46px; padding: 10px 6px; font-size: 15px;">+5</button>
+                        <button type="button" onclick="adjustCounter('teleopMaxShot', 10)" class="btn" style="min-width: 46px; padding: 10px 6px; font-size: 15px;">+10</button>
+                        <button type="button" onclick="document.getElementById('teleopMaxShot').value=0" class="btn danger" style="min-width: 46px; padding: 10px 6px; font-size: 15px;">&#8635;</button>
+                    </div>
+                    <small style="color: #888;">Log the best single shot of the match</small>
+                </div>
+                <div class="form-group">
                     <label for="shootingStyle">Shooting Style</label>
                     <select id="shootingStyle" name="shootingStyle">
                         <option value="Not observed" selected>Not observed</option>
@@ -154,13 +167,23 @@
                     </select>
                 </div>
                 <div class="form-group">
+                    <label for="shootingAccuracy">Shooting Accuracy</label>
+                    <select id="shootingAccuracy" name="shootingAccuracy">
+                        <option value="Not observed" selected>Not observed</option>
+                        <option value=">80%">&gt;80% — Very accurate (rarely misses)</option>
+                        <option value="60-80%">60–80% — Mostly accurate</option>
+                        <option value="40-60%">40–60% — Average accuracy</option>
+                        <option value="<40%">&lt;40% — Low accuracy (misses often)</option>
+                    </select>
+                    <small style="color: #888;">Estimate how often their shots go in</small>
+                </div>
+                <div class="form-group">
                     <label for="navigation">Field Navigation</label>
                     <select id="navigation" name="navigation">
                         <option value="Not observed" selected>Not observed</option>
                         <option value="Trench runner">Trench runner</option>
                         <option value="Goes over BUMPS">Goes over BUMPS</option>
                         <option value="Both">Both (versatile)</option>
-                        <option value="Avoids obstacles">Avoids obstacles / struggles</option>
                     </select>
                 </div>
 

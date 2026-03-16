@@ -87,13 +87,13 @@
 
                 <h3>Autonomous</h3>
                 <div class="form-group">
-                    <label>FUEL Scoring (Auto)</label>
+                    <label>Auto FUEL Result</label>
                     <select id="autoFuelCategory" name="autoFuelCategory">
-                        <option value="Not observed" selected>Not observed yet</option>
-                        <option value="High">High - Scores many FUEL consistently</option>
-                        <option value="Medium">Medium - Scores some FUEL</option>
-                        <option value="Low">Low - Scores few FUEL</option>
-                        <option value="None">None - Does not score FUEL</option>
+                        <option value="None" selected>None</option>
+                        <option value="All preload scored">All preload scored</option>
+                        <option value="Some preload scored">Some preload scored</option>
+                        <option value="All preload missed">All preload missed</option>
+                        <option value="Added more fuel">Collected &amp; scored extra FUEL</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -106,24 +106,48 @@
 
                 <h3>Teleop</h3>
                 <div class="form-group">
-                    <label>FUEL Scoring (Teleop)</label>
+                    <label>FUEL Scored (Teleop)</label>
                     <select id="teleopFuelCategory" name="teleopFuelCategory">
-                        <option value="Not observed" selected>Not observed yet</option>
-                        <option value="High">High - Scores many FUEL consistently</option>
-                        <option value="Medium">Medium - Scores some FUEL</option>
-                        <option value="Low">Low - Scores few FUEL</option>
-                        <option value="None">None - Does not score FUEL</option>
+                        <option value="None" selected>None</option>
+                        <option value="20+">20+ FUEL scored</option>
+                        <option value="10-19">10-19 FUEL scored</option>
+                        <option value="5-9">5-9 FUEL scored</option>
+                        <option value="<5">&lt;5 FUEL scored</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label>Max FUEL in One Shot</label>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
+                        <input type="number" id="teleopMaxShot" name="teleopMaxShot" value="0" min="0"
+                            style="width: 72px; text-align: center; font-size: 22px; font-weight: bold; padding: 8px; border: 2px solid #DAA520; border-radius: 8px; background: #1a1a1a; color: #DAA520;">
+                        <button type="button" onclick="adjustCounter('teleopMaxShot', 1)" class="btn" style="min-width: 46px; padding: 10px 6px; font-size: 15px;">+1</button>
+                        <button type="button" onclick="adjustCounter('teleopMaxShot', 2)" class="btn" style="min-width: 46px; padding: 10px 6px; font-size: 15px;">+2</button>
+                        <button type="button" onclick="adjustCounter('teleopMaxShot', 5)" class="btn" style="min-width: 46px; padding: 10px 6px; font-size: 15px;">+5</button>
+                        <button type="button" onclick="adjustCounter('teleopMaxShot', 10)" class="btn" style="min-width: 46px; padding: 10px 6px; font-size: 15px;">+10</button>
+                        <button type="button" onclick="document.getElementById('teleopMaxShot').value=0" class="btn danger" style="min-width: 46px; padding: 10px 6px; font-size: 15px;">&#8635;</button>
+                    </div>
+                    <small style="color: #888;">Log the best single shot of the match</small>
                 </div>
                 <div class="form-group">
                     <label for="shootingStyle">Shooting Style – On the Move or Stand &amp; Shoot?</label>
                     <select id="shootingStyle" name="shootingStyle">
-                        <option value="Not observed" selected>Not observed yet</option>
+                        <option value="Not observed" selected>Not observed</option>
                         <option value="Mostly shoots while moving">On the Move (shoots while driving)</option>
                         <option value="Mostly stops and shoots">Stand &amp; Shoot (stops to aim)</option>
                         <option value="Mostly shoots from far">Far shooter (shoots from distance)</option>
                         <option value="Mostly shoots close to HUB">Close shooter (near HUB)</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label for="shootingAccuracy">Shooting Accuracy</label>
+                    <select id="shootingAccuracy" name="shootingAccuracy">
+                        <option value="Not observed" selected>Not observed</option>
+                        <option value=">80%">&gt;80% — Very accurate (rarely misses)</option>
+                        <option value="60-80%">60–80% — Mostly accurate</option>
+                        <option value="40-60%">40–60% — Average accuracy</option>
+                        <option value="<40%">&lt;40% — Low accuracy (misses often)</option>
+                    </select>
+                    <small style="color: #888;">Estimate how often their shots go in</small>
                 </div>
                 <div class="form-group">
                     <label for="hopperSize">Hopper / Fuel Capacity</label>
@@ -137,11 +161,10 @@
                 <div class="form-group">
                     <label for="navigation">Field Navigation</label>
                     <select id="navigation" name="navigation">
-                        <option value="Not observed" selected>Not observed yet</option>
+                        <option value="Not observed" selected>Not observed</option>
                         <option value="Goes over BUMPS">Goes over BUMPS</option>
                         <option value="Goes through TRENCHES">Goes through TRENCHES</option>
                         <option value="Both BUMPS and TRENCHES">Both (versatile drivetrain)</option>
-                        <option value="Avoids/struggles">Avoids obstacles / struggles</option>
                     </select>
                     <small style="color: #666;">Track drivetrain capabilities for strategy planning</small>
                 </div>
