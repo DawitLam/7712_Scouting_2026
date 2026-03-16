@@ -823,11 +823,13 @@ var OUR_NUM     = '7712';
    ================================================================ */
 function parseCSV(text) {
     matchData = []; pitData = [];
+    // Strip UTF-8 BOM (added by Excel on save) and normalise Windows CRLF
+    text = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     var sections = text.trim().split(/\n\s*\n/);
     sections.forEach(function(sec) {
         var lines = sec.trim().split('\n').filter(function(l) { return l.trim(); });
         if (lines.length < 2) return;
-        var headers = csvLine(lines[0]);
+        var headers = csvLine(lines[0]).map(function(h) { return h.trim(); }); // trim header names
         for (var i = 1; i < lines.length; i++) {
             var vals = csvLine(lines[i]);
             var row = {};
@@ -836,6 +838,9 @@ function parseCSV(text) {
             else if (row.Type === 'PitScout') pitData.push(row);
         }
     });
+    if (matchData.length === 0 && pitData.length === 0) {
+        showToast('No data found in file. Check it was exported from the scouting app and not re-saved in Excel.', 'error');
+    }
 }
 function csvLine(line) {
     var r = [], cur = '', inQ = false;
@@ -860,23 +865,24 @@ function pointsAuto(m) {
     // Form values: 'Scored at spot', 'Moved and shot', 'Collected from station', 'Collected from depot' (multi-select, joined with ', ')
     if (method.indexOf('Moved and shot') !== -1 && method.indexOf('Scored at spot') !== -1) pts += 4;
     else if (method.indexOf('Moved and shot') !== -1) pts += 3;
-    else if (method.indexOf('Scored at spot') !== -1) pts += 1.5;
+    else if (method.indexOf('Scored at spot') !== -1) pts += 2;
     if (method.indexOf('Collected') !== -1) pts += 0.5;
     var fuel = (m.AutoFuelResult || 'None');
-    // Form values: 'All preload scored', 'Some preload scored', 'All preload missed', 'Added more fuel'
-    if (fuel.indexOf('Added more fuel') !== -1) pts += 7;
-    else if (fuel === 'All preload scored' || fuel.indexOf('All scored') !== -1) pts += 5;
-    else if (fuel === 'Some preload scored' || fuel.indexOf('Most scored') !== -1 || fuel.indexOf('Some scored') !== -1) pts += 2.5;
-    // Form value for AutoTower: 'Level 1' = climbed in auto
-    if ((m.AutoTower || '').indexOf('Level') !== -1 || (m.AutoTower || '').indexOf('Retrieved') !== -1) pts += 1;
+    // Calibrated for REBUILT 2026: auto fuel high-value; 'Added more fuel' = exceptional robot
+    if (fuel.indexOf('Added more fuel') !== -1) pts += 9;
+    else if (fuel === 'All preload scored' || fuel.indexOf('All scored') !== -1) pts += 6;
+    else if (fuel === 'Some preload scored' || fuel.indexOf('Most scored') !== -1 || fuel.indexOf('Some scored') !== -1) pts += 3;
+    // Auto tower: +3 — rare capability; enables early Energized bonus threshold for alliance
+    if ((m.AutoTower || '').indexOf('Level') !== -1 || (m.AutoTower || '').indexOf('Retrieved') !== -1) pts += 3;
     if (method && method !== 'None') pts += 1;
     return pts;
 }
 function pointsTeleop(m) {
     var fuel = (m.TeleopFuelScored || 'None'), pts = 0;
-    if (fuel.indexOf('20+') !== -1) pts = 10;
-    else if (fuel.indexOf('10-19') !== -1 || fuel.indexOf('10-') !== -1) pts = 7;
-    else if (fuel.indexOf('5-9') !== -1) pts = 4;
+    // Calibrated for REBUILT 2026: Durham finals show 20+ per robot is the differentiating tier
+    if (fuel.indexOf('20+') !== -1) pts = 13;
+    else if (fuel.indexOf('10-19') !== -1 || fuel.indexOf('10-') !== -1) pts = 8;
+    else if (fuel.indexOf('5-9') !== -1) pts = 5;
     else if (fuel.indexOf('<5') !== -1 || fuel.indexOf('Less') !== -1) pts = 2;
     var style = (m.ShootingStyle || '');
     // Form values: 'Mostly shoots while moving', 'Mostly shoots close to HUB', 'Mostly shoots from far', 'Mostly stops and shoots'
@@ -888,9 +894,11 @@ function pointsTeleop(m) {
 }
 function pointsEndgame(m) {
     var tower = (m.TeleopTower || 'None');
-    if (tower.indexOf('Level 3') !== -1 || tower.indexOf('High') !== -1) return 6;
-    if (tower.indexOf('Level 2') !== -1 || tower.indexOf('Mid') !== -1) return 4;
-    if (tower.indexOf('Level 1') !== -1 || tower.indexOf('Low') !== -1) return 2;
+    // Calibrated for REBUILT 2026: alliance climb bonuses (Energized/Supercharged/Traversal)
+    // are match-deciding. Level 3 → Traversal Bonus worth ~50+ pts alliance-wide.
+    if (tower.indexOf('Level 3') !== -1 || tower.indexOf('High') !== -1) return 15;
+    if (tower.indexOf('Level 2') !== -1 || tower.indexOf('Mid') !== -1) return 8;
+    if (tower.indexOf('Level 1') !== -1 || tower.indexOf('Low') !== -1) return 4;
     return 0;
 }
 function pointsDefense(m) {
@@ -1939,7 +1947,7 @@ function renderAllianceCard() {
         var shootM = s ? modeVal(s.matches.map(function(m) { return m.ShootingStyle; })) : null;
 
         // best climb
-        var climbOrder = {'T':5,'H':4,'M':3,'L':2,'None':1,'Failed':0};
+        var climbOrder = {'Level 3':5,'Level 2':4,'Level 1':3,'None':1,'Failed':0,'N/A':0};
         var bestClimb = 'N/A';
         if (s) s.matches.forEach(function(m) { var c = m.TeleopTower; if (c && (climbOrder[c]||0) > (climbOrder[bestClimb]||0)) bestClimb = c; });
 

@@ -806,7 +806,6 @@ function loadData() {
                 html += `
                     <div class="match-card">
                         <div class="match-header">Match ${match.matchNumber} - Team ${match.teamNumber}${scoutIndicator}
-                            <button onclick="showAllianceSummary(${match.teamNumber})" style="float:right;background:rgba(218,165,32,0.2);border:1px solid #DAA520;color:#DAA520;border-radius:8px;padding:3px 10px;font-size:13px;cursor:pointer;margin-left:6px;" title="Alliance Pick Summary">&#128203; Quick Look</button>
                             <button onclick="deleteMatchRecord('${match.timestamp}')" style="float:right;background:rgba(248,81,73,0.2);border:1px solid #f85149;color:#f85149;border-radius:8px;padding:3px 10px;font-size:13px;cursor:pointer;" title="Delete this match record">&#128465; Delete</button>
                         </div>
                         <div style="margin: 12px 0; font-size: 16px;"><strong>Alliance:</strong> ${match.alliance} | <strong>Scout:</strong> ${match.scoutName}</div>
@@ -1535,6 +1534,8 @@ function showAllianceSummary(teamNumberArg) {
     window.currentModal = modal;
     modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 }
+
+// Alliance Pick Quick Look has moved to tools/analysis.html → Alliance Card Builder
 
 async function openTransferModal() {
     try {
