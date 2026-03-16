@@ -1279,6 +1279,24 @@ function updateUI() {
     var consCount = consensusData.length;
     var infoEl = document.getElementById('syncInfo');
     infoEl.innerHTML = '<span class="sync-count">' + rawCount + ' records → ' + consCount + ' matches</span>';
+
+    // Silently fetch team names from TBA if we have a saved key/event but no names yet
+    fetchTeamNamesBackground();
+}
+
+function fetchTeamNamesBackground() {
+    if (Object.keys(tbaTeamNames).length > 0) return; // already have names
+    var key, evt;
+    try { key = localStorage.getItem('tba_key'); evt = localStorage.getItem('tba_event'); } catch(e) {}
+    if (!key || !evt) return;
+    fetchJSON(TBA_BASE + '/event/' + evt + '/teams/simple', { 'X-TBA-Auth-Key': key }, function(err, data) {
+        if (err || !data) return;
+        tbaTeamNames = {};
+        data.forEach(function(t) { tbaTeamNames[String(t.team_number)] = t.nickname || ''; });
+        // Re-render all views silently to show names
+        populateDropdowns(Object.keys(teamStats));
+        renderWCI(); renderMatches(); renderPits(); renderPickList(); renderScoutReport();
+    });
 }
 
 function populateDropdowns(teams) {
