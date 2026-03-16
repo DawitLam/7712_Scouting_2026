@@ -894,6 +894,12 @@ function pointsTeleop(m) {
     // Form values: 'Mostly shoots while moving', 'Mostly shoots close to HUB', 'Mostly shoots from far', 'Mostly stops and shoots'
     if (style.indexOf('while moving') !== -1) pts *= 1.15;
     else if (style.indexOf('close to HUB') !== -1) pts *= 1.1;
+    // Accuracy multiplier: high accuracy = robot's volume actually translates to alliance points
+    var acc = (m.ShootingAccuracy || '');
+    if (acc.indexOf('>80') !== -1) pts *= 1.2;
+    else if (acc.indexOf('60-80') !== -1) pts *= 1.05;
+    else if (acc.indexOf('40-60') !== -1) pts *= 0.85;
+    else if (acc.indexOf('<40') !== -1) pts *= 0.65;
     // Form value: 'Both' = uses both zones
     if ((m.Navigation || '').indexOf('Both') !== -1) pts += 0.5;
     return pts;
@@ -938,7 +944,7 @@ function isWorking(m) {
 
         var CONSENSUS_CAT_FIELDS = [
     'StartPosition','AutoScoringMethod','AutoFuelResult','AutoTower',
-    'ShootingStyle','HopperSize','Navigation','TeleopTower','PlayedDefense',
+    'ShootingStyle','ShootingAccuracy','HopperSize','Navigation','TeleopTower','PlayedDefense',
     'DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating',
     'HumanPlayerRating'
 ];

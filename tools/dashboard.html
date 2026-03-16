@@ -895,6 +895,12 @@ function pointsTeleop(m) {
     // Form values: 'Mostly shoots while moving', 'Mostly shoots close to HUB', 'Mostly shoots from far', 'Mostly stops and shoots'
     if (style.indexOf('while moving') !== -1) pts *= 1.15;
     else if (style.indexOf('close to HUB') !== -1) pts *= 1.1;
+    // Accuracy multiplier: high accuracy = robot's volume actually translates to alliance points
+    var acc = (m.ShootingAccuracy || '');
+    if (acc.indexOf('>80') !== -1) pts *= 1.2;
+    else if (acc.indexOf('60-80') !== -1) pts *= 1.05;
+    else if (acc.indexOf('40-60') !== -1) pts *= 0.85;
+    else if (acc.indexOf('<40') !== -1) pts *= 0.65;
     // Form value: 'Both' = uses both zones
     if ((m.Navigation || '').indexOf('Both') !== -1) pts += 0.5;
     return pts;
@@ -939,7 +945,7 @@ function isWorking(m) {
 
         var CONSENSUS_CAT_FIELDS = [
     'StartPosition','AutoScoringMethod','AutoFuelResult','AutoTower',
-    'ShootingStyle','HopperSize','Navigation','TeleopTower','PlayedDefense',
+    'ShootingStyle','ShootingAccuracy','HopperSize','Navigation','TeleopTower','PlayedDefense',
     'DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating',
     'HumanPlayerRating'
 ];
@@ -2126,7 +2132,7 @@ function buildCSVFromApp(rawMatches, rawPits) {
     var q = function(v) { return '"' + String(v || '').replace(/"/g, '""') + '"'; };
     var lines = [];
     if (rawMatches.length) {
-        lines.push('Type,Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,HopperSize,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,OfficialAllianceScore,Notes,Timestamp');
+        lines.push('Type,Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,ShootingAccuracy,MaxSingleShot,HopperSize,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,OfficialAllianceScore,Notes,Timestamp');
         rawMatches.forEach(function(m) {
             lines.push([
                 'Match',
@@ -2141,6 +2147,8 @@ function buildCSVFromApp(rawMatches, rawPits) {
                 q(m.autoTower || 'None'),
                 q(m.teleopFuelCategory || 'None'),
                 q(m.shootingStyle || 'Not observed'),
+                q(m.shootingAccuracy || 'Not observed'),
+                m.teleopMaxShot || 0,
                 q(m.hopperSize || 'Unknown'),
                 q(m.navigation || 'Not observed'),
                 q(m.teleopTower || 'None'),
