@@ -1,5 +1,5 @@
 // Service Worker for Team 7712 Scouting App
-const CACHE_NAME = 'team-7712-scouting-v2.9.3';
+const CACHE_NAME = 'team-7712-scouting-v3.1.0';
 const urlsToCache = [
     './',
     '/index.html',
