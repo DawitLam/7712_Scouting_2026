@@ -478,7 +478,7 @@
                     <tr style="border-bottom:1px solid #161b22;">
                         <td style="padding:7px 10px;"><code style="color:#e6edf3;">TeleopFuelScored</code></td>
                         <td style="padding:7px 10px;color:#8b949e;">Quantity of FUEL scored in Teleop</td>
-                        <td style="padding:7px 10px;color:#a3d977;">None &nbsp;|&nbsp; 20+ &nbsp;|&nbsp; 10-19 &nbsp;|&nbsp; 5-9 &nbsp;|&nbsp; &lt;5</td>
+                        <td style="padding:7px 10px;color:#a3d977;">None &nbsp;|&nbsp; 31+ &nbsp;|&nbsp; 16-30 &nbsp;|&nbsp; 6-15 &nbsp;|&nbsp; 1-5</td>
                     </tr>
                     <tr style="border-bottom:1px solid #161b22;">
                         <td style="padding:7px 10px;"><code style="color:#e6edf3;">ShootingStyle</code></td>
@@ -607,23 +607,23 @@
                     <tr style="border-bottom:1px solid #161b22;"><td colspan="3" style="padding:6px 10px;color:#3fb950;font-weight:700;">Teleop</td></tr>
                     <tr style="border-bottom:1px solid #161b22;">
                         <td style="padding:5px 10px 5px 20px;color:#8b949e;">TeleopFuelScored</td>
-                        <td style="padding:5px 10px;">20+</td>
+                        <td style="padding:5px 10px;">31+</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">24</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
+                        <td style="padding:5px 10px;">16–30</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">18</td>
+                    </tr>
+                    <tr style="border-bottom:1px solid #161b22;">
+                        <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
+                        <td style="padding:5px 10px;">6–15</td>
                         <td style="padding:5px 10px;text-align:right;color:#a3d977;">10</td>
                     </tr>
                     <tr style="border-bottom:1px solid #161b22;">
                         <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
-                        <td style="padding:5px 10px;">10–19</td>
-                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">7</td>
-                    </tr>
-                    <tr style="border-bottom:1px solid #161b22;">
-                        <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
-                        <td style="padding:5px 10px;">5–9</td>
-                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">4</td>
-                    </tr>
-                    <tr style="border-bottom:1px solid #161b22;">
-                        <td style="padding:5px 10px 5px 20px;color:#8b949e;"></td>
-                        <td style="padding:5px 10px;">&lt;5</td>
-                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">2</td>
+                        <td style="padding:5px 10px;">1–5</td>
+                        <td style="padding:5px 10px;text-align:right;color:#a3d977;">3</td>
                     </tr>
                     <tr style="border-bottom:1px solid #161b22;">
                         <td style="padding:5px 10px 5px 20px;color:#8b949e;">ShootingStyle <em style="font-style:italic;font-size:11px;">multiplier</em></td>
@@ -895,11 +895,15 @@ function pointsAuto(m) {
 }
 function pointsTeleop(m) {
     var fuel = (m.TeleopFuelScored || 'None'), pts = 0;
-    // Calibrated for REBUILT 2026: Durham finals show 20+ per robot is the differentiating tier
-    if (fuel.indexOf('20+') !== -1) pts = 16;
-    else if (fuel.indexOf('10-19') !== -1 || fuel.indexOf('10-') !== -1) pts = 8;
-    else if (fuel.indexOf('5-9') !== -1) pts = 5;
-    else if (fuel.indexOf('<5') !== -1 || fuel.indexOf('Less') !== -1) pts = 2;
+    // New ranges: 31+ / 16-30 / 6-15 / 1-5 (backward compat with old 20+/10-19/5-9/<5)
+    if      (fuel.indexOf('31+')   !== -1)                              pts = 24;
+    else if (fuel.indexOf('16-30') !== -1)                              pts = 18;
+    else if (fuel.indexOf('6-15')  !== -1)                              pts = 10;
+    else if (fuel.indexOf('1-5')   !== -1)                              pts = 3;
+    else if (fuel.indexOf('20+')   !== -1)                              pts = 18;  // legacy
+    else if (fuel.indexOf('10-19') !== -1 || fuel.indexOf('10-') !== -1) pts = 10; // legacy
+    else if (fuel.indexOf('5-9')   !== -1)                              pts = 5;   // legacy
+    else if (fuel.indexOf('<5')    !== -1 || fuel.indexOf('Less') !== -1) pts = 3; // legacy
     var style = (m.ShootingStyle || '');
     // Form values: 'Mostly shoots while moving', 'Mostly shoots close to HUB', 'Mostly shoots from far', 'Mostly stops and shoots'
     if (style.indexOf('while moving') !== -1) pts *= 1.15;
@@ -967,7 +971,7 @@ function isWorking(m) {
     'HumanPlayerRating'
 ];
 var CONSENSUS_ORD_FIELDS = {
-    'TeleopFuelScored': ['<5','5-9','10-19','20+']
+    'TeleopFuelScored': ['1-5','6-15','16-30','31+']
 };
 var ALL_CONSENSUS_FIELDS = CONSENSUS_CAT_FIELDS.concat(Object.keys(CONSENSUS_ORD_FIELDS));
 
