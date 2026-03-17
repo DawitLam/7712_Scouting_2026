@@ -896,7 +896,7 @@ function pointsAuto(m) {
 function pointsTeleop(m) {
     var fuel = (m.TeleopFuelScored || 'None'), pts = 0;
     // Calibrated for REBUILT 2026: Durham finals show 20+ per robot is the differentiating tier
-    if (fuel.indexOf('20+') !== -1) pts = 13;
+    if (fuel.indexOf('20+') !== -1) pts = 16;
     else if (fuel.indexOf('10-19') !== -1 || fuel.indexOf('10-') !== -1) pts = 8;
     else if (fuel.indexOf('5-9') !== -1) pts = 5;
     else if (fuel.indexOf('<5') !== -1 || fuel.indexOf('Less') !== -1) pts = 2;
@@ -918,8 +918,8 @@ function pointsEndgame(m) {
     var tower = (m.TeleopTower || 'None');
     // Calibrated for REBUILT 2026: alliance climb bonuses (Energized/Supercharged/Traversal)
     // are match-deciding. Level 3 → Traversal Bonus worth ~50+ pts alliance-wide.
-    if (tower.indexOf('Level 3') !== -1 || tower.indexOf('High') !== -1) return 15;
-    if (tower.indexOf('Level 2') !== -1 || tower.indexOf('Mid') !== -1) return 8;
+    if (tower.indexOf('Level 3') !== -1 || tower.indexOf('High') !== -1) return 20;
+    if (tower.indexOf('Level 2') !== -1 || tower.indexOf('Mid') !== -1) return 9;
     if (tower.indexOf('Level 1') !== -1 || tower.indexOf('Low') !== -1) return 4;
     return 0;
 }
