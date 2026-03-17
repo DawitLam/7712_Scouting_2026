@@ -819,7 +819,17 @@ function naturalSortMatch(a, b) {
 var tbaTeams    = [];   // team keys at the event
 var tbaMatches  = [];   // match objects from TBA
 var tbaEventKey  = '';   // current event key
-var tbaTeamNames = {};   // String(team_number) → nickname from TBA
+var tbaTeamNames = {   // North Bay 2026 pre-loaded roster
+    '610':'Crescent Coyotes','1305':'Ice Cubed','1334':'OT Devils',
+    '2013':'Cybergnomes','2609':'Beaverworx','2706':'Merge Robotics',
+    '2708':'Lake Effect Robotics','2935':'NACI Robotics','3543':'C4 Robotics',
+    '4152':'Hoya Robotics','5036':'The Robo Devils','5596':'Wolverine Robotics',
+    '6859':'Big Metal Lakers','6864':'GryphTech Robotics','7476':'Spongebotics',
+    '7480':'Machine Mavericks','7520':'Team MineKee','7712':'ACCN UMOJA',
+    '8729':'Sparkling H2O','8884':'Knight Owls','9580':'Grizzly Gears',
+    '9589':'Arcade Robotics','9785':'Alectrona','10015':'Bubbles',
+    '10924':'Titanium Titans','11270':'Nova'
+};
 var OUR_TEAM     = 'frc7712';
 var OUR_NUM     = '7712';
 
@@ -1298,7 +1308,6 @@ function updateUI() {
 }
 
 function fetchTeamNamesBackground() {
-    if (Object.keys(tbaTeamNames).length > 0) return; // already have names
     var key, evt;
     try { key = localStorage.getItem('tba_key'); evt = localStorage.getItem('tba_event'); } catch(e) {}
     if (!key || !evt) return;
@@ -2563,7 +2572,7 @@ function saveTeamNames() {
 function loadTeamNames() {
     try {
         var s = localStorage.getItem('tba_team_names');
-        if (s) { var n = JSON.parse(s); if (n && typeof n === 'object') tbaTeamNames = n; }
+        if (s) { var n = JSON.parse(s); if (n && typeof n === 'object') tbaTeamNames = Object.assign({}, tbaTeamNames, n); }
     } catch(e) {}
 }
 
