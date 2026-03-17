@@ -494,7 +494,7 @@ function getLocalMatches() {
 // When robot status is Disabled or No show, disable scoring fields
 function handleRobotStatusChange(value) {
     const disable = (value === 'Disabled' || value === 'No show');
-    const ids = ['autoFuelCategory','autoTower','teleopFuelCategory','shootingStyle','navigation','teleopTower','playedDefense','defenseEffectiveness','consistencyRating','shootingAccuracy'];
+    const ids = ['autoFuelCategory','autoTower','teleopFuelCategory','shootingStyle','observedCycleTime','navigation','teleopTower','playedDefense','defenseEffectiveness','consistencyRating','shootingAccuracy'];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -509,7 +509,7 @@ function handleRobotStatusChange(value) {
     });
     if (disable) {
         // Auto-fill disabled values
-        const sets = {autoFuelCategory:'None',autoTower:'None',teleopFuelCategory:'None',shootingStyle:'Not observed',navigation:'Not observed',teleopTower:'None',playedDefense:'No',defenseEffectiveness:'Not applicable',consistencyRating:'Unreliable',shootingAccuracy:'Not observed'};
+        const sets = {autoFuelCategory:'None',autoTower:'None',teleopFuelCategory:'None',shootingStyle:'Not observed',observedCycleTime:'Not observed',navigation:'Not observed',teleopTower:'None',playedDefense:'No',defenseEffectiveness:'Not applicable',consistencyRating:'Unreliable',shootingAccuracy:'Not observed'};
         Object.entries(sets).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val; });
         document.querySelectorAll('input[name="autoScoringMethod"]').forEach(cb => cb.checked = false);
         showNotification('Robot disabled — scoring fields locked', 'warning');
@@ -645,6 +645,7 @@ function submitMatch(event) {
         autoTower: formData.get('autoTower') || 'None',
         teleopFuelCategory: formData.get('teleopFuelCategory') || 'None',
         shootingStyle: formData.get('shootingStyle') || 'Not observed',
+        observedCycleTime: formData.get('observedCycleTime') || 'Not observed',
         navigation: formData.get('navigation') || 'Not observed',
         shootingAccuracy: formData.get('shootingAccuracy') || 'Not observed',
         teleopMaxShot: parseInt(formData.get('teleopMaxShot')) || 0,
@@ -824,7 +825,7 @@ function generateCSV() {
     
     // Match Data CSV
     if (matches.length > 0) {
-        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','StartPosition','AutoScoringMethod','AutoFuelResult','AutoTower','TeleopFuelScored','ShootingStyle','ShootingAccuracy','MaxSingleShot','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','HumanPlayerTeam','HumanPlayerRating','Notes','Timestamp'];
+        const matchHeaders = ['Type','Match','Team','Alliance','Scout','Location','StartPosition','AutoScoringMethod','AutoFuelResult','AutoTower','TeleopFuelScored','ShootingStyle','ShootingAccuracy','MaxSingleShot','ObservedCycleTime','Navigation','TeleopTower','PlayedDefense','DefenseEffectiveness','FoulsObserved','RobotStatus','ConsistencyRating','HumanPlayerTeam','HumanPlayerRating','Notes','Timestamp'];
         const matchRows = matches.map(m => [
                 'Match',
                 q(m.matchNumber),
@@ -840,6 +841,7 @@ function generateCSV() {
                 q(m.shootingStyle || 'Not observed'),
                 q(m.shootingAccuracy || 'Not observed'),
                 m.teleopMaxShot || 0,
+                q(m.observedCycleTime || 'Not observed'),
                 q(m.navigation || 'Not observed'),
                 q(m.teleopTower || 'None'),
                 q(m.playedDefense || 'No'),
@@ -972,7 +974,7 @@ async function generateQR(text, size = 300) {
 function prefixForQR(csvText) { return `TEAM7712CSV\n${csvText}`; }
 
 // CSV headers for QR payloads (v3 format)
-const QR_CSV_HEADERS = 'Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,ShootingAccuracy,MaxSingleShot,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes,Timestamp';
+const QR_CSV_HEADERS = 'Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,ShootingAccuracy,MaxSingleShot,ObservedCycleTime,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,Notes,Timestamp';
 
 function encodeMatchRecord(match) {
     // v3 format: CSV row — all string fields quoted to handle commas in multi-select values
@@ -990,6 +992,7 @@ function encodeMatchRecord(match) {
         q(match.autoTower || 'None'),
         q(match.teleopFuelCategory || 'None'),
         q(match.shootingStyle || 'Not observed'),
+        q(match.observedCycleTime || 'Not observed'),
         q(match.navigation || 'Not observed'),
         q(match.teleopTower || 'None'),
         q(match.playedDefense || 'No'),
@@ -1052,6 +1055,10 @@ function decodeCSVMatchLine(line) {
     }
     parts.push(cur);
     if (parts.length < 15) return null;
+    // v3.2 with ObservedCycleTime: 23 fields; legacy: 22 fields
+    const hasObsCycle = parts.length >= 23;
+    const observedCycleTime = hasObsCycle ? (parts[11] || 'Not observed') : 'Not observed';
+    const navOff = hasObsCycle ? 1 : 0;
     return {
         matchNumber: parts[0] || '',
         teamNumber: parseInt(parts[1], 10) || 0,
@@ -1064,17 +1071,18 @@ function decodeCSVMatchLine(line) {
         autoTower: parts[8] || 'None',
         teleopFuelCategory: parts[9] || 'None',
         shootingStyle: parts[10] || 'Not observed',
-        navigation: parts[11] || 'Not observed',
-        teleopTower: parts[12] || 'None',
-        playedDefense: parts[13] || 'No',
-        defenseEffectiveness: parts[14] || 'Not applicable',
-        foulsObserved: parts[15] || 'None',
-        robotStatus: parts[16] || 'Worked full match',
-        consistencyRating: parts[17] || 'Reliable',
-        humanPlayerTeam: parts[18] || '',
-        humanPlayerRating: parts[19] || 'Not observed',
-        notes: parts[20] || '',
-        timestamp: parts[21] || new Date().toISOString(),
+        observedCycleTime,
+        navigation: parts[11 + navOff] || 'Not observed',
+        teleopTower: parts[12 + navOff] || 'None',
+        playedDefense: parts[13 + navOff] || 'No',
+        defenseEffectiveness: parts[14 + navOff] || 'Not applicable',
+        foulsObserved: parts[15 + navOff] || 'None',
+        robotStatus: parts[16 + navOff] || 'Worked full match',
+        consistencyRating: parts[17 + navOff] || 'Reliable',
+        humanPlayerTeam: parts[18 + navOff] || '',
+        humanPlayerRating: parts[19 + navOff] || 'Not observed',
+        notes: parts[20 + navOff] || '',
+        timestamp: parts[21 + navOff] || new Date().toISOString(),
         id: Date.now() + Math.random()
     };
 }

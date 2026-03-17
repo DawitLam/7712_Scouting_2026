@@ -912,6 +912,14 @@ function pointsTeleop(m) {
     else if (acc.indexOf('<40') !== -1) pts *= 0.65;
     // Form value: 'Both' = uses both zones
     if ((m.Navigation || '').indexOf('Both') !== -1) pts += 0.5;
+    // Hopper size: larger capacity = higher scoring ceiling per cycle run
+    var hopper = (m.HopperSize || '');
+    if (hopper.indexOf('Big') !== -1) pts += 2.0;
+    else if (hopper.indexOf('Medium') !== -1) pts += 0.8;
+    // Observed cycle time: fast cyclist can load+score more times per match
+    var obsCycle = (m.ObservedCycleTime || '');
+    if (obsCycle === 'Fast') pts *= 1.2;
+    else if (obsCycle === 'Slow') pts *= 0.85;
     return pts;
 }
 function pointsEndgame(m) {
@@ -1141,6 +1149,21 @@ function computeStats() {
         s.endgameWCI = ema(s.endgameArr);
         s.totalWCI   = ema(s.totalArr);
         s.teleopEgWCI = s.teleopWCI + s.endgameWCI;  // combined field performance (teleop + endgame)
+        // Cycle time multiplier: prefer match-observed data; fall back to pit scout
+        var pitEntry = pitData.find(function(p) { return String(p.Team) === String(t); });
+        var matchCycleMode = (function() {
+            var vals = s.matches.map(function(m) { return m.ObservedCycleTime || ''; }).filter(function(v) { return v && v !== 'Not observed'; });
+            if (!vals.length) return null;
+            var counts = {}; vals.forEach(function(v) { counts[v] = (counts[v] || 0) + 1; });
+            return Object.keys(counts).sort(function(a,b){ return counts[b]-counts[a]; })[0];
+        })();
+        var cycleSource = matchCycleMode || (pitEntry ? pitEntry.CycleTime : null);
+        if (cycleSource) {
+            var cycleMult = cycleSource === 'Fast' ? 1.15 : cycleSource === 'Slow' ? 0.88 : 1.0;
+            s.teleopWCI   = +(s.teleopWCI * cycleMult).toFixed(2);
+            s.teleopEgWCI = +(s.teleopWCI + s.endgameWCI).toFixed(2);
+            s.totalWCI    = +(s.autoWCI + s.teleopWCI + s.endgameWCI).toFixed(2);
+        }
         s.defenseWCI = ema(s.defenseArr);
         s.consistWCI = ema(s.consistArr);
         s.reliability = s.n > 0 ? Math.round((s.working / s.n) * 100) : 0;
@@ -1470,11 +1493,16 @@ function showTeamDetail(team) {
     h += fld('Fouls', s.foulsMinor + ' minor, ' + s.foulsMajor + ' major');
     h += fld('Scouts', Object.keys(s.scouts).join(', '));
 
-    // New: hopper size + shooting style from match history
+    // New: hopper size + shooting style + observed cycle time from match history
     var hopperMode = modeVal(s.matches.map(function(m) { return m.HopperSize; }));
     var shootMode  = modeVal(s.matches.map(function(m) { return m.ShootingStyle; }));
-    if (hopperMode)  h += fld('Hopper Size', hopperMode);
-    if (shootMode)   h += fld('Shooting Style', shootMode);
+    var cycleObsMode = (function() {
+        var vals = s.matches.map(function(m) { return m.ObservedCycleTime || ''; }).filter(function(v) { return v && v !== 'Not observed'; });
+        return vals.length ? modeVal(vals) : null;
+    })();
+    if (hopperMode)    h += fld('Hopper Size', hopperMode);
+    if (shootMode)     h += fld('Shooting Style', shootMode);
+    if (cycleObsMode)  h += fld('Cycle Speed (observed)', cycleObsMode);
 
     // New: avg official per-robot estimate
     var officialScores = s.matches.map(function(m) { return parseInt(m.OfficialAllianceScore, 10) || 0; }).filter(function(v) { return v > 0; });
@@ -2140,7 +2168,7 @@ function buildCSVFromApp(rawMatches, rawPits) {
     var q = function(v) { return '"' + String(v || '').replace(/"/g, '""') + '"'; };
     var lines = [];
     if (rawMatches.length) {
-        lines.push('Type,Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,HopperSize,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,OfficialAllianceScore,Notes,Timestamp');
+        lines.push('Type,Match,Team,Alliance,Scout,Location,StartPosition,AutoScoringMethod,AutoFuelResult,AutoTower,TeleopFuelScored,ShootingStyle,HopperSize,ObservedCycleTime,Navigation,TeleopTower,PlayedDefense,DefenseEffectiveness,FoulsObserved,RobotStatus,ConsistencyRating,HumanPlayerTeam,HumanPlayerRating,OfficialAllianceScore,Notes,Timestamp');
         rawMatches.forEach(function(m) {
             lines.push([
                 'Match',
@@ -2156,6 +2184,7 @@ function buildCSVFromApp(rawMatches, rawPits) {
                 q(m.teleopFuelCategory || 'None'),
                 q(m.shootingStyle || 'Not observed'),
                 q(m.hopperSize || 'Unknown'),
+                q(m.observedCycleTime || 'Not observed'),
                 q(m.navigation || 'Not observed'),
                 q(m.teleopTower || 'None'),
                 q(m.playedDefense || 'No'),
