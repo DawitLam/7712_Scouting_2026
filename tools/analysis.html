@@ -837,34 +837,55 @@ var OUR_NUM     = '7712';
    ================================================================ */
 function parseCSV(text) {
     matchData = []; pitData = [];
-    // Strip UTF-8 BOM (added by Excel on save) and normalise Windows CRLF
+    // Strip UTF-8 BOM and normalise line endings
     text = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    var sections = text.trim().split(/\n\s*\n/);
-    sections.forEach(function(sec) {
-        var lines = sec.trim().split('\n').filter(function(l) { return l.trim(); });
-        if (lines.length < 2) return;
-        var headers = csvLine(lines[0]).map(function(h) { return h.trim(); }); // trim header names
-        for (var i = 1; i < lines.length; i++) {
-            var vals = csvLine(lines[i]);
-            var row = {};
-            headers.forEach(function(h, idx) { row[h] = (vals[idx] || '').trim(); });
-            if (row.Type === 'Match') matchData.push(row);
-            else if (row.Type === 'PitScout') pitData.push(row);
+    // Full RFC-4180 parser: handles quoted fields that contain commas, newlines, and blank lines
+    var rows = parseAllCSVRows(text);
+    var headers = null;
+    rows.forEach(function(vals) {
+        // Blank row = section separator
+        if (vals.length === 0 || (vals.length === 1 && vals[0].trim() === '')) {
+            headers = null; return;
         }
+        var first = (vals[0] || '').trim();
+        // Header row detection
+        if (first === 'Type') {
+            headers = vals.map(function(h) { return h.trim(); });
+            return;
+        }
+        if (!headers) return;
+        var row = {};
+        headers.forEach(function(h, idx) { row[h] = (vals[idx] !== undefined ? vals[idx] : '').trim(); });
+        if (row.Type === 'Match') matchData.push(row);
+        else if (row.Type === 'PitScout') pitData.push(row);
     });
     if (matchData.length === 0 && pitData.length === 0) {
         showToast('No data found in file. Check it was exported from the scouting app and not re-saved in Excel.', 'error');
     }
 }
-function csvLine(line) {
-    var r = [], cur = '', inQ = false;
-    for (var i = 0; i < line.length; i++) {
-        var c = line[i];
-        if (inQ) { if (c === '"' && line[i+1] === '"') { cur += '"'; i++; } else if (c === '"') inQ = false; else cur += c; }
-        else { if (c === '"') inQ = true; else if (c === ',') { r.push(cur); cur = ''; } else cur += c; }
+function parseAllCSVRows(text) {
+    // Character-by-character parser that correctly handles embedded newlines in quoted fields
+    var rows = [], row = [], cur = '', inQ = false;
+    for (var i = 0; i < text.length; i++) {
+        var c = text[i];
+        if (inQ) {
+            if (c === '"') {
+                if (text[i + 1] === '"') { cur += '"'; i++; } // escaped quote
+                else inQ = false;                               // closing quote
+            } else {
+                cur += c; // newlines inside quotes are part of the field value
+            }
+        } else {
+            if      (c === '"') { inQ = true; }
+            else if (c === ',') { row.push(cur); cur = ''; }
+            else if (c === '\n') { row.push(cur); cur = ''; rows.push(row); row = []; }
+            else { cur += c; }
+        }
     }
-    r.push(cur); return r;
+    if (cur !== '' || row.length > 0) { row.push(cur); rows.push(row); }
+    return rows;
 }
+function csvLine(line) { return parseAllCSVRows(line)[0] || []; }
 
 /* ================================================================
    WCI POINT SCORING
