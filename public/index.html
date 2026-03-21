@@ -35,7 +35,7 @@
             <img id="teamLogo" src="./team7712_logo_reefscape.png?v=20251205" alt="Team 7712 Logo" class="logo">
             <h1>Team 7712 ACCN-Umoja</h1>
             <div class="subtitle">FRC 2026 Scouting - REBUILT</div>
-            <div style="margin-top:6px; font-size:12px; color:#ccc;">Build v3.3.0</div>
+            <div style="margin-top:6px; font-size:12px; color:#ccc;">Build v3.3.1</div>
         </div>
 
         <!-- Home Page -->
@@ -265,6 +265,26 @@
                 
                 <h3>Robot Information</h3>
                 <div class="form-group">
+                    <label for="robotType">Type of Robot</label>
+                    <select id="robotType" name="robotType">
+                        <option value="Not specified">Not specified</option>
+                        <option value="Offense">Offense</option>
+                        <option value="Defense">Defense</option>
+                        <option value="Both">Both (Offense &amp; Defense)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="shooterType">Shooter Type</label>
+                    <select id="shooterType" name="shooterType">
+                        <option value="Not specified">Not specified</option>
+                        <option value="Single shooter">Single shooter</option>
+                        <option value="Dual shooter">Dual shooter (two)</option>
+                        <option value="Triple shooter">Triple shooter (three)</option>
+                        <option value="Turret">Turret (rotating)</option>
+                        <option value="No shooter">No shooter</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="robotDimension">Robot Dimensions (L x W x H)</label>
                     <input type="text" id="robotDimension" name="robotDimension" placeholder="e.g., 28 x 26 x 42 inches">
                 </div>
@@ -302,6 +322,16 @@
                 <div class="form-group">
                     <label for="fuelCapacity">Robot FUEL Capacity</label>
                     <input type="number" id="fuelCapacity" name="fuelCapacity" placeholder="How many FUEL can they hold?">
+                </div>
+                <div class="form-group">
+                    <label for="robotCycleTime">Robot Cycle Time</label>
+                    <select id="robotCycleTime" name="robotCycleTime">
+                        <option value="Not specified">Not specified</option>
+                        <option value="Fast">Fast (&lt;10 sec per cycle)</option>
+                        <option value="Medium">Medium (10–20 sec)</option>
+                        <option value="Slow">Slow (20+ sec)</option>
+                    </select>
+                    <small style="color: #666;">Time from picking up FUEL to scoring it</small>
                 </div>
                 <div class="form-group">
                     <label for="climbCapability">TOWER Climb Capability</label>
@@ -373,7 +403,7 @@
         </div>
     </div>
 
-    <script src="/app.js?v=3.3.0"></script>
+    <script src="/app.js?v=3.3.1"></script>
 </body>
 </html>
 
