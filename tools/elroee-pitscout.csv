@@ -1,0 +1,82 @@
+Type,Team,Scout,RobotType,ShooterType,Dimensions,Weight,Drivetrain,Navigation,FuelCapacity,CycleTime,AutoCapability,ClimbLevel,DriverExperience,Notes,Timestamp
+PitScout,8729,Elroee,Both,Not specified,27 x 27,96,Swerve,Both,40 balls,Fast,Shoot preload,None,2 years,"Competed at Durham
+Change the ball from hitting
+
+20 cycles
+Both defense and offense
+95% but stationary",2026-03-20T21:34:23.906Z
+PitScout,8884,Elroee,Offense,Not specified,29.5 x 25,110,Swerve,Both,45 balls,Not specified,Neutral zone twice under Trench and shoot fuel,None,2 years,"Preferred Trench
+First event
+Offense bot
+Stays in neutral and passes fuel
+Shoot from anywhere",2026-03-20T21:38:28.246Z
+PitScout,610,Elroee,Offense,Not specified,26 x 28.5,114,Swerve,Both,40 balls,Medium,Left or right side and do two cycles,None,New driver,"Offense bot
+Second comp and change with coding
+10 cycles 80% accuracy
+Inactive: pass fuel
+Active: clean up
+290 high score match",2026-03-20T21:49:31.789Z
+PitScout,2706,Elroee,Both,Not specified,25.5 x 29,89,Swerve,Both,25 balls,Not specified,Go to Trench and then outpost then shoot,None,2 years,"Trench mostly
+80% - miss one or two shots
+Both but prefer offense
+Under the bumper intake",2026-03-20T21:54:22.445Z
+PitScout,2708,Elroee,Offense,Not specified,26 x 28,120,Swerve,Goes over BUMPS,30 balls,Not specified,Shoot preload and park near Trench,None,1 year,"Driver switch often
+Rebuild intake and conveyor system since it broke in Durham
+Mostly offense
+Support bot",2026-03-20T21:59:08.418Z
+PitScout,3543,Elroee,Both,Turret,27 x 27,103,Swerve,Both,30 balls,Medium,"Shoot preload, then goes under Trench and collect fuel",None,1 year,"Both but mostly offense
+Hopper carries more - more turret funnel control
+10 cycles
+80-85% accuracy",2026-03-20T22:08:51.188Z
+PitScout,10015,Elroee,Offense,Not specified,25.5 x 27,109,Swerve,Goes over BUMPS,50 balls,Medium,"Preload shoot, go to deposit and shoot",None,2 years,"Offense bot
+10 cycles
+80-90% accuracy - 40 ball hopper only miss one or two
+Took off the climb",2026-03-20T22:12:58.838Z
+PitScout,9785,Elroee,Offense,Not specified,27 x 28,112,Swerve,Both,45 balls,Medium,Go to neutral zone to shoot immediately,Level 1,3+ years,"Prefer under the Trench
+Don't climb often
+Driver has VEX and FRC experience
+Mostly offense bot
+10 cycles
+90-96% accuracy
+Humber competition - fixed broken parts",2026-03-20T22:18:49.536Z
+PitScout,9589,Elroee,Defense,Not specified,27 x 27,70,West Coast,Both,12 balls,Not specified,Shoot preloaded fuel,None,New driver,"Defense bot
+Durham comp - no changes other than bumper
+75% accuracy
+Cycle time is only in auto",2026-03-20T22:23:37.881Z
+PitScout,7520,Elroee,Offense,Not specified,28 x 26,112,Swerve,Both,30 balls,Not specified,Double swipe and outpost or deposit and climb,Level 1,New driver,"First year but did off season
+Mostly offense bot
+Just feed and shoot - no cycle
+95% accuracy
+3rd alliance at Humber comp
+Added a net and improved coding",2026-03-20T22:28:18.910Z
+PitScout,4152,Elroee,Both,Not specified,27 x 27,115,Swerve,Both,50 balls,Medium,"Multiple auto paths - around 6 per side
+Under the Trench - pick up ball, shoot, repeat twice",None,3+ years,"4 years experience
+Both but mostly offense
+10 cycles
+80-85% accuracy
+Added anti-blocker, changed indexer to prevent jams, fixed broken parts and modified 3D printed parts for efficiency (from Durham)
+Over the bumper intake",2026-03-20T22:34:16.321Z
+PitScout,5036,Elroee,Both,Not specified,27 x 27,92,Swerve,Goes through TRENCHES,15 balls,Not specified,Preloaded shooting,None,3+ years,"Offense bot but can do both
+Durham comp - improved auto
+70% accuracy
+Over the bumper intake
+Ranked 20th at Durham
+Can feed alliance fuel / pass it on",2026-03-20T22:45:33.836Z
+PitScout,2013,Elroee,Offense,Dual shooter,25 x 29,114,Swerve,Goes over BUMPS,40 balls,Medium,Shoot preloaded,None,2 years,"Pacific Northwest competition - no major changes
+Mostly offense bot
+80% accuracy
+10 cycles
+Got rid of bulk shooter
+Versatile robot - turret shooter, can push fuel to human players, double shooter",2026-03-20T22:53:55.410Z
+PitScout,1334,Elroee,Both,Not specified,26 x 27,114,Swerve,Goes over BUMPS,50 balls,Not specified,"Right side Trench, go to deposit, shoot collected fuel and preload",None,1 year,"Swap driver
+Both defense and offense
+First comp - ramp up fuel to shoot
+Over the bumper intake
+Shoot mostly, stay in zone, rely on alliance to pass fuel",2026-03-20T22:59:28.595Z
+PitScout,7480,Elroee,Both,Turret,24 x 30,109,Swerve,Goes over BUMPS,60 balls,Medium,Shoot preloaded,None,New driver,"Drove at Stemley
+Both but mostly offense
+Durham - added second turret and did repairs
+10 cycles
+75% accuracy
+Made it to second alliance - played both defense and offense
+Great defensive driver",2026-03-20T23:08:18.323Z
