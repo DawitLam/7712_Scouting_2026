@@ -408,6 +408,7 @@
                         <option value="">Select event...</option>
                         <option value="2026onosh">&#9989; Durham College (Mar 13-15) — results posted</option>
                         <option value="2026onnob" selected>&#128197; North Bay (Mar 20-22) — this week</option>
+                        <option value="2026oncmp1">&#127942; Provincial Science Division (Apr 17-19)</option>
                     </select>
                 </div>
                 <button class="btn-sm btn-gold" onclick="fetchTBASchedule()">Fetch Schedule</button>
@@ -2637,7 +2638,11 @@ function loadTeamNames() {
 
 /* ── Render the full schedule tab ── */
 function renderSchedule() {
-    var eventNames = { '2026onnob': 'North Bay (Nipissing)', '2026onosh': 'Durham College' };
+    var eventNames = {
+        '2026onnob': 'North Bay (Nipissing)',
+        '2026onosh': 'Durham College',
+        '2026oncmp1': 'Provincial Science Division'
+    };
     var eventName = eventNames[tbaEventKey] || tbaEventKey;
 
     // Sort matches: quals first by number, then playoffs

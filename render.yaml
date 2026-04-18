@@ -1,0 +1,23 @@
+# render.yaml — deploy config for Render (render.com)
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: 7712-scouting-bot
+    runtime: node
+    plan: free
+    rootDir: slack-bot
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: SLACK_BOT_TOKEN
+        sync: false        # set manually in Render dashboard
+      - key: SLACK_SIGNING_SECRET
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SCOUTING_CHANNEL_IDS
+        sync: false
+      - key: NODE_ENV
+        value: production
